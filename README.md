@@ -151,12 +151,12 @@ using the combinators in this library.
 
 Note on Asynchrony
 ------------------
-Although coroutines have important applciations in concurrent or
+Although coroutines have important applications in concurrent or
 asynchronous programming, they are not being used in that capacity
 here.  In this library they are used simply to act as glue for
 combinators that work in a synchronous way and that expect to have
-the entire input buffer in memory.  In fact, coroutines that
-yield the `parsco::parser<T>` will only suspend when they fail,
+the entire input buffer in memory.  In fact, `parsco::parser<T>`
+coroutines that suspend will only suspend when they fail,
 and will then never resume, similar to a `std::optional<T>`
 coroutine.
 
