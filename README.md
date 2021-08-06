@@ -8,8 +8,8 @@ C++20 Coroutines.
 
 PRs are welcome.
 
-What is a Coroutine Combinator
-==============================
+Example 1: What are Coroutine Combinators
+-----------------------------------------
 A parser combinator is a function (or higher-order function)
 that acts as a simple building block for creating complex parsers.
 This library provides a parser object and combiantors that
@@ -58,8 +58,8 @@ in a failure.
 3. It will handle keeping track of the current position in the
 input buffer as well as the location of parsing errors if any.
 
-The Hello World Parser
-----------------------
+Example 2: The Hello World Parser
+---------------------------------
 
 As a first example, let us define a simple grammar that we will refer
 to as the "hello world" grammar.  It is defined as follows:
@@ -169,7 +169,6 @@ to Haskell's `Parsec` monad, for example.
 
 Building
 --------
-
 Since C++20 coroutines are a relatively new feature, compiler
 support is currently not perfect.
 
@@ -183,14 +182,13 @@ Not yet tested with MSVC.
 
 Runtime Performance
 -------------------
-
 There is good news and bad news... good news first: when using
 Clang with optimizations enabled (`-O3`), I have observed that a
 complex parser made of many combinators using this library can
 be optimized to a point where it runs around 15x slower than a
 parser hand-coded in C, in the benchmarks that I ran.  That may
 seem bad, but given how incredibly fast a hand-coded C parser
-can be, I'd say that is not bad.
+can be, I'd say that is not so bad.
 
 The bad news is that, in non-optimized builds, the performance
 (relative to a hand-coded C parser) will be much worse.
@@ -328,10 +326,12 @@ parser<> blanks();
 ```
 
 ## double_quoted_str / single_quoted_str
-The `double_quoted_str` and `singel_quoted_str` respectively
-parse "..." or '...' and returns the stuff inside, which cannot
+The `double_quoted_str` and `single_quoted_str` respectively
+parse "..." or '...' and returns the stuff inside, which may
 contain newlines. Note that these return string views into the
-buffer because they are implemented using primitives.
+buffer because they are implemented using "magic" primitives,
+i.e., combinators for which there is special support within
+the `parsco::promise_type` object, just for efficiency.
 ```cpp
 parser<std::string_view> double_quoted_str();
 parser<std::string_view> single_quoted_str();
@@ -347,6 +347,15 @@ parser<std::string> quoted_str();
 
 Sequences
 ---------
+Many of the combinators in this section are actually higher-order
+functions.  They take functions that, when called, produce parser
+objects and then run those parser objects, typically in some
+kind of repeated fashion.
+
+A single `parser<T>` object represents a live coroutine, and so
+it itself cannot be run multiple times; instead, if a combinator
+needs to run a user-specified parser multiple times, it must
+accept a function that generates those parsers.
 
 ## many
 The `many` parser parses zero or more of the given parser.
