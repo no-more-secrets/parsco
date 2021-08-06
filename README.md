@@ -291,6 +291,10 @@ parser<std::string> quoted_str();
 
 Combinators
 ===========
+
+Almost all combinators are listed below along with signatures.
+
+## pred
 The `pred` parser parses a single character for which the predicate
 returns true, fails otherwise.
 ```cpp
@@ -298,6 +302,7 @@ template<typename T>
 parser<char> pred( T func );
 ```
 
+## many
 The `many` parser parses zero or more of the given parser.
 ```cpp
 template<typename Func, typename... Args>
@@ -306,20 +311,7 @@ auto many( Func f, Args... args ) const -> parser<R>;
 where `R` is a `std::vector` if the element parser returns something
 other than a character, or a `std::string` otherwise.
 
-The `many_exhaust` parser runs a `many` combinator, but one that
-expects to consume all of the input. The reason this is better
-than combining the `many` combinator with the `exhaust` combinator
-is because the `many_exhaust` combinator knows what it
-failed to parse if it fails to parse the entire input and so can
-produce better error messages.
-
-You should call this whenever you need to consume an entire input
-(or remainder of input) with a single repeating parser.
-```cpp
-template<typename Func, typename... Args>
-auto many_exhaust( Func f, Args... args ) const -> parser<R>;
-```
-
+## many_type
 The `many_type` parser parses zero or more of the given type for
 the given language tag using the parsco ADH extension point mechanism.
 ```cpp
@@ -329,6 +321,7 @@ parser<R> many_type();
 where `R` is a `std::vector` if the element parser returns something
 other than a character, or a `std::string` otherwise.
 
+## many1
 The `many1` parser parses one or more of the given parser.
 ```cpp
 template<typename Func, typename... Args>
@@ -337,6 +330,7 @@ auto many1( Func f, Args... args ) const -> parser<R>;
 where `R` is a `std::vector` if the element parser returns something
 other than a character, or a `std::string` otherwise.
 
+## seq
 The `seq` parser runs multiple parsers in sequence, and only succeeds
 if all of them succeed. Returns all results in a tuple.
 ```cpp
@@ -344,6 +338,7 @@ template<typename... Parsers>
 parser<std::tuple<...>> seq( Parsers... );
 ```
 
+## invoke
 The `invoke` parser calls the given function with the results of
 the parsers as arguments (which must all succeed).
 
@@ -358,6 +353,7 @@ where `R` is the result type of the function `f` when invoked
 with the results of all of the parsers are arguments.
 
 
+## emplace
 The `emplace` parser calls the constructor of the given type with
 the results of the parsers as arguments (which must all succeed).
 ```cpp
@@ -365,6 +361,7 @@ template<typename T, typename... Parsers>
 parser<T> emplace( Parsers... ps );
 ```
 
+## seq_last
 The `seq_last` parser runs multiple parsers in sequence, and only
 succeeds if all of them succeed. Returns last result.
 ```cpp
@@ -373,6 +370,7 @@ parser<R> seq_last( Parsers... ps );
 ```
 where `R` is the `value_type` of the last parser in the argument list
 
+## seq_first
 The `seq_first` parser runs multiple parsers in sequence, and only
 succeeds if all of them succeed. Returns first result.
 ```cpp
@@ -381,6 +379,7 @@ parser<R> seq_first( Parsers... ps );
 ```
 where `R` is the `value_type` of the first parser in the argument list
 
+## on_error
 The `on_error` combinator runs the given parser and if it fails
 it will return the error message given (as opposed to any error
 message that was produced by the parser).
@@ -389,6 +388,7 @@ template<typename Parser>
 Parser on_error( Parser p, std::string_view err_msg );
 ```
 
+## exhaust
 The `exhaust` parser runs the given parser and then checks that
 the input buffers has been exhausted (if not, it fails). Returns
 the result from the parser on success (i.e., when all input has
@@ -398,6 +398,7 @@ template<typename Parser>
 Parser exhaust( Parser p );
 ```
 
+## unwrap
 The `unwrap` parser is not really a parser, it just takes a
 nullable entity (such as a `std::optional`, `std::expected`,
 `std::unique_ptr`), and it will return a parser that, when
@@ -408,6 +409,7 @@ template<Nullable N>
 parser<typename N::value_type> unwrap( N n );
 ```
 
+## bracketed
 The `bracketed` parser runs the given parser p between characters
 l and r (or parsers l and r, depending on the overload chosen).
 ```cpp
@@ -418,6 +420,7 @@ template<typename L, typename R, typename T>
 parser<T> bracketed( parser<L> l, parser<T> p, parser<R> r );
 ```
 
+## try_ignore
 The `try_ignore` parser will try running the given parser but ignore
 the result if it succeeds. As with `try_`, it will still
 succeed if the given parser fails, though it will return a
@@ -428,6 +431,7 @@ template<Parser P>
 parser<> try_ignore( P p );
 ```
 
+## fmap
 The classic `fmap` combinator runs the parser p and applies the
 given function to the result, if successful.
 ```cpp
@@ -438,6 +442,7 @@ parser<R> fmap( Func f, P p );
 where `R` is the result of invoking the function on the
 `value_type` of the parser `p`.
 
+## first
 The `first` parser runs the parsers in sequence until the first
 one succeeds, then returns its result (all of the parsers must
 return the same result type). If none of them succeed then the
@@ -450,6 +455,7 @@ requires( std::is_same_v<typename P::value_type,
 parser<R> first( P fst, Ps... rest );
 ```
 
+## interleave_first
 The `interleave_first` parses "g f g f g f" and returns the f's.
 ```cpp
 template<typename F, typename G>
@@ -457,13 +463,15 @@ parser<R> interleave_first( F f, G g, bool sep_required = true );
 ```
 where `R` is the `value_type` of the parser `f`.
 
-The `interleave_first` parses "f g f g f g" and returns the f's.
+## interleave_last
+The `interleave_last` parses "f g f g f g" and returns the f's.
 ```cpp
 template<typename F, typename G>
 parser<R> interleave_last( F f, G g, bool sep_required = true );
 ```
 where `R` is the `value_type` of the parser `f`.
 
+## interleave
 The `interleave` parses "f g f g f" and returns the f's.
 ```cpp
 template<typename F, typename G>
@@ -471,7 +479,7 @@ parser<R> interleave( F f, G g, bool sep_required = true );
 ```
 where `R` is the `value_type` of the parser `f`.
 
-# cat
+## cat
 The `cat` parser runs multiple string-yielding parsers in sequence
 and concatenates the results into one string.
 ```cpp
@@ -479,7 +487,7 @@ template<typename... Parsers>
 parser<std::string> cat( Parsers... ps );
 ```
 
-# >> operator
+## >> operator
 The `>>` operator runs the parsers in sequence (all must succeed)
 and returns the result of the final one.
 ```cpp
@@ -490,7 +498,7 @@ parser<typename U::value_type> operator>>( T l, U r );
 co_await (blanks() >> identifier());
 ```
 
-# << operator
+## << operator
 The `<<` operator runs the parsers in sequence (all must succeed)
 and returns the result of the first one.
 ```cpp
@@ -501,7 +509,7 @@ parser<typename T::value_type> operator<<( T l, U r );
 co_await (identifier() << blanks());
 ```
 
-# | operator
+## | operator
 The `|` operator runs the parser in the order given and returns
 the result of the first one that succeeds.  The parsers must all
 return the same type.
