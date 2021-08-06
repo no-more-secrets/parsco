@@ -69,12 +69,12 @@ re-entrant and thread safe (in some sense).
 Example 2: The Hello World Parser
 ---------------------------------
 
-As a first example, let us define a simple grammar that we will refer
+As a second example, let us define a simple grammar that we will refer
 to as the "hello world" grammar.  It is defined as follows:
 
 1. The string may start or end with any number of spaces.
 2. It must contain the two words 'hello' and 'world' in that order.
-3. The two works must have their first letters either both lowercase
+3. The two words must have their first letters either both lowercase
 or both uppercase.
 4. Subsequent letters in each word must always be lowercase.
 5. The second word may have an arbitrary number of exclamation marks
@@ -214,8 +214,9 @@ test "hello, world!! x"    failed to parse:
                            fake-filename.txt:error:1:16 failed to parse all characters in input stream
 ```
 
-Note that in those cases where we provided an error
-ourselves, it gives it to the user for a better experience.
+Note that in those cases where we provided an error message
+ourselves via the `fail` combinator, it gives it to the user
+for a better experience.
 
 JSON Parser
 -----------
@@ -413,6 +414,23 @@ make it more ammenable to Clang's optimizations of Coroutines.
 PRs are welcome for that if anyone has any expertise there,
 particular with regard to improving performance in non-optimized
 builds.
+
+Error Messages
+--------------
+Upon parse failure, the parsco parser framework is always able
+to give the location (line and column) that the error occurred
+in the input text.  However, it is not generally able to provide
+a human-readable error message describing what the parser was
+expecting, unless the failure was initiated by use of the `fail`
+combinator as demonstrated in the Hello World example above.
+
+Ideas are welcome for how to enhance the library so that the
+a given parser can be inspected to automatically determine what
+characters it was expecting (may be challenging to do this
+without the help of the programmer giving hints).  That said,
+even if that were possible, it seems that the most user-intelligible
+error message would still be provided mainly by the programmer
+via the `fail( "..." )` combinator.
 
 Combinator Reference
 ====================
