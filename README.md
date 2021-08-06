@@ -1,6 +1,60 @@
-# parsco
-C++20 Coroutine-Based Synchronous Parser Combinator Library
+parsco
+------
+C++20 Coroutine Synchronous Parser Combinator Library.
 
+This library contains a monadic parser type and associated
+combinators that can be composed to create parsers using
+C++20 Coroutines.
+
+What is a Coroutine Combinator
+==============================
+A parser combinator is a function (or higher-order function)
+that acts as a simple building block for creating complex parsers.
+This library provides a parser object and combiantors that
+can be combined using C++20 Coroutines.
+
+For example, let's say that you want to use
+the `chr` parser, which parses a single specific character,
+to build a parser that parses any two-character
+string where both characters are the same (e.g. "==", "aa") and
+then returns that character on success. You would do that like
+this:
+```cpp
+parsco::parser<char> parse_two_same() {
+  char c = co_await parsco::any_chr();
+  co_await parsco::chr( c );
+  co_return c;
+}
+
+// Another way to implement it would be:
+parsco::parser<char> parse_two_same() {
+  char c1 = co_await parsco::any_chr();
+  char c2 = co_await parsco::any_chr();
+  if( c1 != c2 )
+    // Provides better error message.
+    co_await parsco::fail( "expected two equal chars" );
+  co_return c;
+}
+```
+The combinators used above (`chr` and `any_chr`) are functions
+that return `parser<T>`s.  As can be seen, they have been
+combined to yield higher level functions (`parse_two_same`)
+that also return `parser<T>`, and thus can be used in more
+complex parsers in a similar way, namely by calling them,
+getting the `parser<t>`s that they return, and then using
+the C++20 `co_await` keyword to run them and get the result.
+
+When you `co_await` on a parser it does a few things for you:
+
+1. It automatically runs the parser and if the parser fails,
+it will return early from the coroutine and report failure to
+the parent (caller) coroutine.  The exception to this is if
+you wrap the parser in the `try_` combinator (see below), but
+this isn't often necessary.
+2. It will automatically detect EOF, which normally results
+in a failure.
+3. It will handle keeping track of the current position in the
+input buffer as well as the location of parsing errors if any.
 
 The Hello World Parser
 ----------------------
@@ -64,50 +118,39 @@ parser<string> parse_hello_world() {
 }
 ```
 
+JSON Parser
+-----------
 To see a more realistic example, see the examples folder wherein you
 will find a JSON parser.
 
+Note on Asynchrony
+------------------
+Although coroutines have important applciations in concurrent or
+asynchronous programming, they are not being used in that capacity
+here.  In this library they are used simply to act as glue for
+combinators that work in a synchronous way and that expect to have
+the entire input buffer in memory.  In fact, coroutines that
+yield the `parsco::parser<T>` will only suspend when they fail,
+and will then never resume, similar to a `std::optional<T>`
+coroutine.
 
-List of Combinators
-===================
+This can be contrasted with other uses of coroutines where e.g.
+the coroutine will suspend while waiting for more input to arrive
+asynchronously, and will then be scheduled to resume when it does.
 
-Below are each of the combinators that you can use to construct
-higher level parsers. For example, let's say that you want to use
-the `chr` parser, which parses a single specific character,
-to build a parser that parses any two-character
-string where both characters are the same (e.g. "==", "aa") and
-then returns that character on success. You would do that like
-this:
-```cpp
-parsco::parser<char> parse_two_same() {
-  char c = co_await parsco::any_chr();
-  co_await parsco::chr( c );
-  co_return c;
-}
+The `parsco::parser<T>` type can be thought of as the C++ equivalent
+to Haskell's `Parsec` monad, for example.
 
-// Another way to implement it would be:
-parsco::parser<char> parse_two_same() {
-  char c1 = co_await parsco::any_chr();
-  char c2 = co_await parsco::any_chr();
-  if( c1 != c2 )
-    co_await parsco::fail( "expected two equal chars" );
-  co_return c;
-}
-```
-The second version has the advantage that it provides an error
-message which can be presented to the user if the parser fails.
+Building
+========
 
-When you `co_await` on a parser it does a few things for you:
+As of 2021-08-06, this library has only been tested on Clang 12
+and GCC 11.1.  The library runs well with Clang, but unfortunately
+GCC's coroutine support is still generally too buggy to run this
+reliably.  Not tested with MSVC.
 
-1. It automatically runs the parser and if the parser fails,
-it will return early from the coroutine and report failure to
-the parent (caller) coroutine.  The exception to this is if
-you wrap the parser in the `try_` combinator (see below), but
-this isn't often necessary.
-2. It will automatically detect EOF, which normally results
-in a failure.
-3. It will handle keeping track of the current position in the
-input buffer as well as the location of parsing errors if any.
+Combinator Reference
+====================
 
 Basic/Primitive Parsers
 -----------------------
@@ -439,11 +482,3 @@ parser<typename U::value_type> operator|( T l, U r ) {
 // Example
 co_await (identifier() | quoted_str());
 ```
-
-Building
-========
-
-As of 2021-08-06, this library has only been tested on Clang 12
-and GCC 11.1.  The library runs well with Clang, but unfortunately
-GCC's coroutine support is still generally too buggy to run this
-reliably.  Not tested with MSVC.
