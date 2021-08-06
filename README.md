@@ -35,7 +35,7 @@ parsco::parser<char> parse_two_same() {
   if( c1 != c2 )
     // Provides better error message.
     co_await parsco::fail( "expected two equal chars" );
-  co_return c;
+  co_return c1;
 }
 ```
 The combinators used above (`chr` and `any_chr`) are functions
@@ -71,6 +71,8 @@ or both uppercase.
 4. Subsequent letters in each word must always be lowercase.
 5. The second word may have an arbitrary number of exclamation marks
 after it, but they must begin right after the second word.
+6. The two words can be separated by spaces or by a comma.  If
+separated by a comma, spaces are optional after the comma.
 
 The following is a parsco parser that parses this grammar:
 
