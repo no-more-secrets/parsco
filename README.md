@@ -952,15 +952,20 @@ Parser exhaust( Parser p );
 ## unwrap
 The `unwrap` parser is not really a parser, it just takes a
 nullable entity (such as a `std::optional`, `std::expected`,
-`std::unique_ptr`), and it will return a "fake" parser that, when
-run, will try to get the value from inside of the nullable
-object.  If the object does not contain a value, then the
-parser will fail.  If it does contain an object, the parser
-will yield it as its result.
+`std::unique_ptr`, `parsco::result_t<T>`, etc.), and it will
+return a "fake" parser that, when run, will try to get the
+value from inside of the nullable object.  If the object does
+not contain a value, then the parser will fail.  If it does
+contain an object, the parser will yield it as its result.
 ```cpp
 template<Nullable N>
 parser<typename N::value_type> unwrap( N n );
 ```
+
+Conceptually this is analogous to a monadic "lift" operation
+as you'd have in functional languages where a monadic value is lifted
+from an inner monad (e.g. `std::optional<T>`) to the transformed
+monad (`parsco::parser<T>`).
 
 Miscellaneous
 -------------
