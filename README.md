@@ -525,7 +525,7 @@ parser<parsco::result_t<R>> try_( P p );
 ```
 where `R` is `P::value_type`, i.e., the result of running parser `p`.
 
-In otherwords, if `p` is a parser of type `parser<T>`, then
+In other words, if `p` is a parser of type `parser<T>`, then
 `try_{ p }` yields a parser of type `parser<parsco::result_t<T>>`.
 When it is run, the parser `p` will be run and, if it fails,
 the resulting `result_t` will contain an error and the parser
@@ -539,11 +539,11 @@ parsers normally fail in this library (by aborting the entire
 parse); instead, a failure is communicated via return value.
 
 ## try_ignore
-The `try_ignore` parser will try running the given parser but ignore
-the result if it succeeds. As with `try_`, it will still
-succeed if the given parser fails, though it will return a
-`result_t` in an error state instead of failing the parent
-parser.
+The `try_ignore` parser will try running the given parser but
+ignore the result.  This is useful if you want to run a parser
+but a) you don't care if it succeeds, and b) you don't care
+what its result is if it succeeds.  This can sometimes help
+to get rid of "unused return value" compiler warnings.
 ```cpp
 template<Parser P>
 parser<> try_ignore( P p );
