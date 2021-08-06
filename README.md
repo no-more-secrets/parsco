@@ -361,17 +361,25 @@ data by its caller.
 
 For that reason, if combinator functions were to accept parameters
 by reference, it could lead to thorny lifetime issues where the
-references become dangling when the parser suspends at its
-initial suspend point and then gets passed to another combinator
-before the end result is eventually `co_await`ed.
+references become dangling when a combinator object is returned
+from a function without `co_await`ing it, which is convenient to
+be able to do (the JSON parser example does this often).
 
-Since it is not easy to avoid this when building up combinators,
-this library opts for the safe route and thus all combinators
-accept their arguments by value.  This may lead to slight
-inefficiencies, but it guarantees that there will not be any
-dangling references. The developer can thus freely create
-arbitrary combinator creations without having to reason about
-lifetime or dangling references.
+In order to systematically avoid this problem, this library opts
+for the safe route and thus all combinators accept their
+arguments by value. This may lead to slight inefficiencies, but it
+guarantees that there will not be any dangling references. The
+developer can thus freely create arbitrary combinator creations
+(`co_await`ing the results immediately or at a later time)
+without having to reason about lifetime or dangling references.
+
+Theoretically, it seems that any such issues could be systematically
+avoided by constructing parsers and wrapping combinators in one
+expression and then `co_await`ing the result immediately before
+the expression goes out of scope, as opposed to putting the result
+into a `parser<T>` lvalue and then `co_await`ing on it later.  However,
+to save the developer having to think about that and to give them
+flexibility, the combinators just take their arguments by value.
 
 The examples in this library have been tested with ASan and they
 do come out clean, for what that is worth.
