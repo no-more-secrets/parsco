@@ -118,10 +118,30 @@ parser<string> parse_hello_world() {
 }
 ```
 
+See the file `hello-world-parser.cpp` in the examples folder for
+a demo of calling this function on some test strings.  Here is
+an example of running it:
+```cpp
+// This should conform to the above grammar.
+std::string_view test = "  hello, world!!!  ";
+
+parsco::result_t<string> hw =
+    parsco::run_parser( "input", s, parse_hello_world() );
+
+if( !hw ) {
+  cout << "test \"" << s
+       << "\" failed to parse; error message: "
+       << hw.get_error().what() << "\n";
+} else {
+  cout << "test \"" << s << "\" succeeded to parse.\n";
+}
+```
+
 JSON Parser
 -----------
-To see a more realistic example, see the examples folder wherein you
-will find a JSON parser.
+To see a more realistic example, see the `json-parser.cpp` file
+in the examples folder which contains a JSON parser constructed
+using the combinators in this library.
 
 Note on Asynchrony
 ------------------
@@ -144,10 +164,16 @@ to Haskell's `Parsec` monad, for example.
 Building
 ========
 
-As of 2021-08-06, this library has only been tested on Clang 12
-and GCC 11.1.  The library runs well with Clang, but unfortunately
-GCC's coroutine support is still generally too buggy to run this
-reliably.  Not tested with MSVC.
+Since C++20 coroutines are a relatively new feature, compiler
+support is currently not perfect.
+
+As of August, 2021, this library has only been tested successfully
+on Clang trunk and (partially successfully) with GCC 11.1.  The
+library runs well with Clang, but unfortunately GCC's coroutine
+support is still generally too buggy to run this reliably, though
+it does seem to be able to run the "hello world" parser example.
+
+Not yet tested with MSVC.
 
 Combinator Reference
 ====================

@@ -112,6 +112,7 @@ int main( int, char** ) {
   vector<string> tests{
       "Hello, World!",        // should pass.
       "  hello , world!!!  ", // should fail.
+      "  hello, world!!!  ",  // should pass.
       "hEllo, World",         // should fail.
       "hello world",          // should pass.
       "HelloWorld",           // should fail.
