@@ -66,7 +66,7 @@ result_t<double> safe_stod( string const &s ) {
 
 parser<int> parse_int() {
   int multiplier = bool( co_await try_{ chr( '-' ) } ) ? -1 : 1;
-  co_return multiplier *co_await unwrap(
+  co_return multiplier *co_await lift(
       safe_stoi( co_await many1( digit ) ) );
 }
 
@@ -78,7 +78,7 @@ parser<double> parse_double() {
   string fpart = co_await many( digit );
   if( ipart.empty() && fpart.empty() )
     co_await fail( "expected double" );
-  co_return multiplier *co_await unwrap(
+  co_return multiplier *co_await lift(
       safe_stod( ipart + '.' + fpart ) );
 }
 

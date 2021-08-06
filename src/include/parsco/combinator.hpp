@@ -463,12 +463,12 @@ struct Exhaust {
 inline constexpr Exhaust exhaust{};
 
 /****************************************************************
-** unwrap
+** lift
 *****************************************************************/
-// This does not do any parsing, it just takes a defererenceable
-// object and tries to unwrap it, and if it can't, then it will
-// fail the parser.
-struct Unwrap {
+// This does not do any parsing, it just takes a nullable object
+// and tries to unwrap it, and if it can't, then it will fail the
+// parser.
+struct Lift {
   template<typename T>
   parser<std::remove_cvref_t<decltype( *std::declval<T>() )>>
   operator()( T o ) const {
@@ -483,7 +483,7 @@ struct Unwrap {
   }
 };
 
-inline constexpr Unwrap unwrap{};
+inline constexpr Lift lift{};
 
 /****************************************************************
 ** bracketed
