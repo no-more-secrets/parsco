@@ -646,15 +646,19 @@ accept a function that produces those parsers when called.
 The `many` parser parses zero or more of the given parser.
 ```cpp
 template<typename Func, typename... Args>
-auto many( Func f, Args... args ) const -> parser<R>;
+parser<R> many( Func f, Args... args );
 ```
-where again the arguments to the combinator are no actually
-a parser, but instead a function (and arguments) which, when
-called, produce parser objects.  The function will be invoked
-on the arguments possibly  multiple times.
-
-`R` is a `std::vector` if the element parser returns something
+where `R` is a `std::vector` if the element parser returns something
 other than a character, or a `std::string` otherwise.
+
+As mentioned in the introduction to this section,  the
+argument to the combinator is not actually a parser, but rather
+a function which, when called with the given arguments, produces
+a parser object.  The function will be invoked on the arguments
+multiple times to repeatedly generate parsers until a parser
+fails to parse, at which point the `many` parser finishes
+(always successfully) and backtracks over any fragment of
+input that failed parsing in the last iteration.
 
 ## many_type
 The `many_type` parser parses zero or more of the given type for
