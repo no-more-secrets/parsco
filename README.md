@@ -971,8 +971,10 @@ Miscellaneous
 -------------
 
 ## bracketed
-The `bracketed` parser runs the given parser p between characters
-`l` and `r` (or parsers `l` and `r`, depending on the overload chosen).
+The `bracketed` parser runs the given parser `p` between characters
+`l` and `r` (or parsers `l` and `r`, depending on the overload chosen)
+and, if all parsers are successful, returns only the result of
+the parser `p` (i.e., what is inside the delimiters).
 ```cpp
 template<typename T>
 parser<T> bracketed( char l, parser<T> p, char r );
@@ -981,7 +983,7 @@ template<typename L, typename R, typename T>
 parser<T> bracketed( parser<L> l, parser<T> p, parser<R> r );
 ```
 
-For example, to parse an identifier between to curly braces,
+For example, to parse an identifier between two curly braces,
 you could do:
 
 ```cpp
@@ -992,6 +994,8 @@ string ident = co_await bracketed( '{',
                                    identifier(),
                                    '}' )
 ```
+
+Given an input of "{hello}" that would yield "hello".
 
 Combinator Niebloids
 --------------------
