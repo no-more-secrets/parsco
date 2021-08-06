@@ -442,5 +442,8 @@ co_await (identifier() | quoted_str());
 
 Building
 ========
-Currently only clang 12+ is really supported, though you may have
-some luck with gcc/msvc.
+
+As of 2021-08-06, this library has only been tested on Clang 12
+and GCC 11.1.  The library runs well with Clang, but unfortunately
+GCC's coroutine support is still generally too buggy to run this
+reliably.  Not tested with MSVC.
