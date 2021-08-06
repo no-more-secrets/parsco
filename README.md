@@ -6,7 +6,7 @@ This library contains a monadic parser type and associated
 combinators that can be composed to create parsers using
 C++20 Coroutines.
 
-PRs are welcome.
+PRs are welcome. 🎉🎉🎉
 
 Example 1: What are Coroutine Combinators
 -----------------------------------------
@@ -394,10 +394,14 @@ complex parser made of many combinators using this library can
 be optimized to a point where it runs around 15x slower than a
 parser hand-coded in C, in the benchmarks that I ran.  That may
 seem bad, but given how incredibly fast a hand-coded C parser
-can be, I'd say that is not so bad.
+can be, it is perhaps not so bad.  Given the high level of
+abstraction that can be attained using this library, it could
+easily be a valid tradeoff to make in some use cases.
 
 The bad news is that, in non-optimized builds, the performance
-(relative to a hand-coded C parser) will be much worse.
+(relative to said C parser) will be much worse.  I believe this
+is likely due to coroutine frame heap allocations not being
+elided in non-optimized builds.
 
 Again on the bright side, I think it is likely that compilers
 will get better in the future with Coroutine optimization and
@@ -406,7 +410,9 @@ showing very good promise it seems.
 
 It is also likely that this library can be tweaked further to
 make it more ammenable to Clang's optimizations of Coroutines.
-PRs are welcome for that if anyone has any expertise there.
+PRs are welcome for that if anyone has any expertise there,
+particular with regard to improving performance in non-optimized
+builds.
 
 Combinator Reference
 ====================
