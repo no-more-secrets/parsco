@@ -71,8 +71,26 @@ or both uppercase.
 4. Subsequent letters in each word must always be lowercase.
 5. The second word may have an arbitrary number of exclamation marks
 after it, but they must begin right after the second word.
-6. The two words can be separated by spaces or by a comma.  If
+6. The number of exclamation marks, if any, must be even.
+7. The two words can be separated by spaces or by a comma. If
 separated by a comma, spaces are optional after the comma.
+
+Examples:
+```cpp
+"Hello, World!!",      // should pass.
+"  hello , world!!  ", // should fail.
+"  hello, world!!!! ", // should pass.
+"  hello, world!!!  ", // should fail.
+"hEllo, World",        // should fail.
+"hello world",         // should pass.
+"HelloWorld",          // should fail.
+"hello,world",         // should pass.
+"hello, World",        // should fail.
+"hello, world!!!!!!",  // should pass.
+"hello, world !!!!",   // should fail.
+"hello, world ",       // should pass.
+"hello, world!! x",    // should fail.
+```
 
 The following is a parsco parser that parses this grammar:
 
@@ -104,9 +122,13 @@ parser<string> parse_hello_world() {
   // The remainder of the word must always be lowercase.
   co_await str( "orld" );
 
-  // Parse zero or more exclamation marks.
-  co_await many( [] { return chr( '!' ); } );
-  // Could also have written many( chr, '!' ).
+  // Parse zero or more exclamation marks. Could also have
+  // written many( chr, '!' ).
+  string excls = co_await many( [] { return chr( '!' ); } );
+
+  // Grammar says number of exclamation marks must be unique.
+  if( excls.size() % 2 != 0 )
+    co_await fail( "must have even # of !s" );
 
   // Eat blanks. We could have used the >> operator again to se-
   // quence this, or we can put it as its own statement.
@@ -116,15 +138,16 @@ parser<string> parse_hello_world() {
   // entire input.
   co_await eof();
 
-  // If we've arrived here then the parse has succeeded, so re-
-  // turn a normalized version of what we parsed.
+  // This is optional, since we're just validating the input, but
+  // it demonstrates how to return a result from the parser.
   co_return "Hello, World!";
 }
 ```
 
 See the file `hello-world-parser.cpp` in the examples folder for
-a demo of calling this function on some test strings.  Here is
-an example of running it:
+a runnable demo of calling this parser on the above input data.
+Essentially we do this:
+
 ```cpp
 // This should conform to the above grammar.
 std::string_view test = "  hello, world!!!  ";
@@ -136,12 +159,52 @@ parsco::result_t<string> hw =
 
 if( !hw ) {
   cout << "test \"" << s
-       << "\" failed to parse; error message: "
-       << hw.get_error().what() << "\n";
+       << "\" failed to parse: " << hw.get_error().what()
+       << "\n";
 } else {
   cout << "test \"" << s << "\" succeeded to parse.\n";
 }
 ```
+
+which, when run on each of the test cases above, yields:
+
+```
+test "Hello, World!!"      succeeded to parse.
+
+test "  hello , world!!  " failed to parse:
+                           fake-filename.txt:error:1:9
+
+test "  hello, world!!!! " succeeded to parse.
+
+test "  hello, world!!!  " failed to parse:
+                           fake-filename.txt:error:1:18 must have even # of !s
+
+test "hEllo, World"        failed to parse:
+                           fake-filename.txt:error:1:2
+
+test "hello world"         succeeded to parse.
+
+test "HelloWorld"          failed to parse:
+                           fake-filename.txt:error:1:6
+
+test "hello,world"         succeeded to parse.
+
+test "hello, World"        failed to parse:
+                           fake-filename.txt:error:1:8
+
+test "hello, world!!!!!!"  succeeded to parse.
+
+test "hello, world !!!!"   failed to parse:
+                           fake-filename.txt:error:1:14 failed to parse all characters in input stream
+
+test "hello, world "       succeeded to parse.
+
+test "hello, world!! x"    failed to parse:
+                           fake-filename.txt:error:1:16 failed to parse all characters in input stream
+```
+
+Note that in those cases where we provided an error
+ourselves, it gives it to the user for a better experience.
 
 JSON Parser
 -----------

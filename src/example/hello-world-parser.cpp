@@ -39,6 +39,25 @@
 using namespace std;
 using namespace parsco;
 
+// As a first example, let us define a simple grammar that we
+// will refer to as the "hello world" grammar. It is defined as
+// follows:
+//
+// 1. The string may start or end with any number of spaces.
+// 2. It must contain the two words 'hello' and 'world' in that
+//    order.
+// 3. The two works must have their first letters either both
+//    lowercase or both uppercase.
+// 4. Subsequent letters in each word must always be lowercase.
+// 5. The second word may have an arbitrary number of exclamation
+//    marks after it, but they must begin right after the second
+//    word.
+// 6. The number of exclamation marks, if any, must be even.
+// 7. The two words can be separated by spaces or by a comma. If
+//    separated by a comma, spaces are optional after the comma.
+//
+// The following is a parsco parser that parses this grammar:
+
 // This is a parser for the "hello world" grammar. See README
 // file for explanation.
 parser<string> parse_hello_world() {
@@ -89,18 +108,24 @@ parser<string> parse_hello_world() {
   // The remainder of the word must always be lowercase.
   co_await str( "orld" );
 
-  // Parse zero or more exclamation marks.
-  co_await many( [] { return chr( '!' ); } );
-  // We could have used the >> operator again to sequence this,
-  // or we can put it as its own statement.
+  // Parse zero or more exclamation marks. Could also have
+  // written many( chr, '!' ).
+  string excls = co_await many( [] { return chr( '!' ); } );
+
+  // Grammar says number of exclamation marks must be unique.
+  if( excls.size() % 2 != 0 )
+    co_await fail( "must have even # of !s" );
+
+  // Eat blanks. We could have used the >> operator again to se-
+  // quence this, or we can put it as its own statement.
   co_await blanks();
 
   // The `eof' parser fails if and only we have not consumed the
   // entire input.
   co_await eof();
 
-  // If we've arrived here then the parse has succeeded, so re-
-  // turn a normalized version of what we parsed.
+  // This is optional, since we're just validating the input, but
+  // it demonstrates how to return a result from the parser.
   co_return "Hello, World!";
 }
 
@@ -110,18 +135,19 @@ parser<string> parse_hello_world() {
 int main( int, char** ) {
   // Some of these will succeed while others will fail.
   vector<string> tests{
-      "Hello, World!",        // should pass.
-      "  hello , world!!!  ", // should fail.
-      "  hello, world!!!  ",  // should pass.
-      "hEllo, World",         // should fail.
-      "hello world",          // should pass.
-      "HelloWorld",           // should fail.
-      "hello,world",          // should pass.
-      "hello, World",         // should fail.
-      "hello, world!!!!!",    // should pass.
-      "hello, world  !!!",    // should fail.
-      "hello, world ",        // should pass.
-      "hello, world!  x",     // should fail.
+      "Hello, World!!",      // should pass.
+      "  hello , world!!  ", // should fail.
+      "  hello, world!!!! ", // should pass.
+      "  hello, world!!!  ", // should fail.
+      "hEllo, World",        // should fail.
+      "hello world",         // should pass.
+      "HelloWorld",          // should fail.
+      "hello,world",         // should pass.
+      "hello, World",        // should fail.
+      "hello, world!!!!!!",  // should pass.
+      "hello, world !!!!",   // should fail.
+      "hello, world ",       // should pass.
+      "hello, world!! x",    // should fail.
   };
 
   using namespace parsco;
@@ -132,8 +158,8 @@ int main( int, char** ) {
 
     if( !hw ) {
       cout << "test \"" << s
-           << "\" failed to parse; error message: "
-           << hw.get_error().what() << "\n";
+           << "\" failed to parse: " << hw.get_error().what()
+           << "\n";
       continue;
     }
     cout << "test \"" << s << "\" succeeded to parse.\n";
