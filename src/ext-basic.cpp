@@ -64,15 +64,13 @@ result_t<double> safe_stod( string const &s ) {
 
 } // namespace
 
-namespace detail {
-
-parser<int> parse_int_default() {
+parser<int> parse_int() {
   int multiplier = bool( co_await try_{ chr( '-' ) } ) ? -1 : 1;
   co_return multiplier *co_await unwrap(
       safe_stoi( co_await many1( digit ) ) );
 }
 
-parser<double> parse_double_default() {
+parser<double> parse_double() {
   double multiplier =
       bool( co_await try_{ chr( '-' ) } ) ? -1 : 1;
   string ipart = co_await many( digit );
@@ -83,7 +81,5 @@ parser<double> parse_double_default() {
   co_return multiplier *co_await unwrap(
       safe_stod( ipart + '.' + fpart ) );
 }
-
-} // namespace detail
 
 } // namespace parsco

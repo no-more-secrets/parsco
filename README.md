@@ -274,6 +274,34 @@ and your parser will be discovered through ADL.  You can use this
 to easily build generic parsers for e.g. `std::vector<T>` which
 then invoke `parsco::parse<SomeLang, T>()` to parse any type.
 
+Failure and Backtracking
+------------------------
+When a `co_await`ed parser fails, it aborts the entire parsing
+call stack in the sense that all coroutines in the call stack
+will be suspended (and likely destroyed shortly thereafter when
+the original `parser<T>` object goes out of scope).
+
+Sometimes, however, we want to attempt a parser and allow for it
+to fail.  For this, there is a special combinator called `try_`:
+
+```cpp
+using namespace parsco;
+
+result_t<int> maybe_int = co_await try_{ parse_int() };
+```
+
+This will propagate parse errors via a return value that can be
+checked in the parser. Upon a failure, the `maybe_int` will con-
+tain the error and the parser will internally have backtracked in
+the input buffer so that any subsequent parsers can retry the
+same section of input.
+
+Generally, the combinators in the library that allow for failing
+parsers will all use the `try_` combinator internally and thus
+will automatically backtrack, so that the internal position in
+the buffer will never extend beyond what has been successfully
+parsed and returned by your parsers.
+
 Note on Asynchrony
 ------------------
 Although coroutines have important applications in concurrent or
@@ -292,6 +320,19 @@ asynchronously, and will then be scheduled to resume when it does.
 
 The `parsco::parser<T>` type can be thought of as the C++ equivalent
 to Haskell's `Parsec` monad, for example.
+
+Coroutine Ownership
+-------------------
+The coroutines in this library follow the practice of "Structured
+Concurrency" in that:
+
+1. The are lazy.
+2. The returned parser object owns the coroutine in RAII fashion
+and will destroy it when the parser object goes out of scope.
+
+This guarantees (in most use cases) that memory and lifetimes will
+be managed properly automatically without any special consideration
+from the user.
 
 Laziness and Parameter Lifetime
 -------------------------------
@@ -319,6 +360,41 @@ lifetime or dangling references.
 The examples in this library have been tested with ASan and they
 do come out clean, for what that is worth.
 
+Building and Running
+====================
+Since C++20 coroutines are a relatively new feature, compiler
+support is currently not perfect.
+
+As of August, 2021, this library has only been tested successfully
+on Clang trunk and (partially successfully) with GCC 11.1.  The
+library runs well with Clang, but unfortunately GCC's coroutine
+support is still generally too buggy to run this reliably, though
+it does seem to be able to run the "hello world" parser example.
+
+Not yet tested with MSVC.
+
+Runtime Performance
+-------------------
+There is good news and bad news... good news first: when using
+Clang with optimizations enabled (`-O3`), I have observed that a
+complex parser made of many combinators using this library can
+be optimized to a point where it runs around 15x slower than a
+parser hand-coded in C, in the benchmarks that I ran.  That may
+seem bad, but given how incredibly fast a hand-coded C parser
+can be, I'd say that is not so bad.
+
+The bad news is that, in non-optimized builds, the performance
+(relative to a hand-coded C parser) will be much worse.
+
+Again on the bright side, I think it is likely that compilers
+will get better in the future with Coroutine optimization and
+so this will hopefully be less of a problem.  Clang is already
+showing very good promise it seems.
+
+It is also likely that this library can be tweaked further to
+make it more ammenable to Clang's optimizations of Coroutines.
+PRs are welcome for that if anyone has any expertise there.
+
 Combinator Reference
 ====================
 
@@ -326,7 +402,7 @@ Basic/Primitive Parsers
 -----------------------
 
 ## chr
-The `chr` parser consumes a char that must be c, otherwise it fails.
+The `chr` parser consumes a char that must be `c`, otherwise it fails.
 ```cpp
 parser<char> chr( char c );
 ```
@@ -416,6 +492,48 @@ fails otherwise. Can be used to test if all input has been consumed
 Although see the `exhaust` parser below.
 ```cpp
 parser<> eof();
+```
+
+Try
+---
+
+The `try_*` family of combinators allow attempting a parser which
+may not succeed and backtracking if it fails.
+
+## try_
+The `try_` combinator simply wraps another parser and signals
+that it is to be allowed to fail.  Moreover, the `try_` wrapper
+will wrap the return type of the parser in a `parsco::result_t<T>`,
+which is analogous to a `std::expected` (we will use `std::expected`
+when it becomes available).
+```cpp
+template<Parser P> // note Parser here is a C++20 Concept.
+parser<parsco::result_t<R>> try_( P p );
+```
+where `R` is `P::value_type`, i.e., the result of running parser `p`.
+
+In otherwords, if `p` is a parser of type `parser<T>`, then
+`try_{ p }` yields a parser of type `parser<parsco::result_t<T>>`.
+When it is run, the parser `p` will be run and, if it fails,
+the resulting `result_t` will contain an error and the parser
+will have backtracked to restore the current position in the
+input buffer to what it was before the parser began, thus giving
+subsequent parsers the opportunity to parse the same input.
+If `p` succeeds, then the `result_t` contains its result.
+
+Hence, a parser wrapped in `try_` never fails in the sense that
+parsers normally fail in this library (by aborting the entire
+parse); instead, a failure is communicated via return value.
+
+## try_ignore
+The `try_ignore` parser will try running the given parser but ignore
+the result if it succeeds. As with `try_`, it will still
+succeed if the given parser fails, though it will return a
+`result_t` in an error state instead of failing the parent
+parser.
+```cpp
+template<Parser P>
+parser<> try_ignore( P p );
 ```
 
 Strings
@@ -616,7 +734,9 @@ Alternatives
 ------------
 
 This means that we give a set of possible parsers, only one of
-which needs to succeed.
+which needs to succeed.  These parsers use the `try_` combinator
+internally, and so therefore they will do backtracking after
+each failed parser before invoking the next one.
 
 ## first
 The `first` parser runs the parsers in sequence until the first
@@ -666,18 +786,57 @@ parser<R> invoke( Func f, Parsers... ps );
 where `R` is the result type of the function `f` when invoked
 with the results of all of the parsers are arguments.
 
+More explicitly, this combinator will run all of the parsers `ps`
+in the order they are passed to the function, and then use their
+results as the arguments to the function `f`, which must itself
+produce a parser.  So in other wods, if we do this:
+
+```cpp
+auto r = co_await parsco::invoke( f, any_char(), any_char() );
+```
+
+that is equivalent to doing:
+
+```cpp
+char c1 = co_await any_char();
+char c2 = co_await any_char();
+auto r = co_await f( c1, c2 );
+```
+
+and thus as can be seen, this parser (like many others) is for
+convenience; it does not do anything that couldn't be done manually.
 
 ## emplace
-The `emplace` parser calls the constructor of the given type with
+The `emplace` parser calls the constructor of the given type `T` with
 the results of the parsers as arguments (which must all succeed).
 ```cpp
 template<typename T, typename... Parsers>
 parser<T> emplace( Parsers... ps );
 ```
+The parsers will be run in the order they are passed to the function.
+Example:
+
+```cpp
+struct Point {
+  Point( int x_, int y_ ) : x( x_ ), y( y_ ) {}
+  int x;
+  int y;
+};
+
+// Assuming that we have a parser for integers called parse_int:
+Point p = co_await parsco::emplace<Point>( parse_int(),
+                                           parse_int() );
+```
+In particular, note that we are not `co_await`ing on the results
+of the `parse_int()` calls; we just give the combinators to
+`emplace` and it does the rest.  This can reduce some verbosity
+in parsers from time to time.  Think of this as an analog to
+Haskell's `<$>`/`<*>` operators for Applicatives.
 
 ## fmap
-The classic `fmap` combinator runs the parser p and applies the
-given function to the result, if successful.
+The venerable `fmap` combinator runs the parser `p` and applies the
+given function to the result, if successful.  The function typically
+does not return a parser; it is just a normal function.
 ```cpp
 template<Parser P, typename Func>
   requires( std::is_invocable_v<Func, typename P::value_type> )
@@ -689,6 +848,11 @@ where `R` is the result of invoking the function on the
 Error Detection
 ---------------
 
+## try_
+The `try_` combinator allowed attempting a parser which may not
+succeed. See the section on "Failure and Bactracking" for an
+example of how this is used.
+
 ## on_error
 The `on_error` combinator runs the given parser and if it fails
 it will return the error message given (as opposed to any error
@@ -697,6 +861,8 @@ message that was produced by the parser).
 template<typename Parser>
 Parser on_error( Parser p, std::string_view err_msg );
 ```
+This is used to provide more meaningful error messages to users
+in response to a given parser having failed.
 
 ## exhaust
 The `exhaust` parser runs the given parser and then checks that
@@ -711,23 +877,14 @@ Parser exhaust( Parser p );
 ## unwrap
 The `unwrap` parser is not really a parser, it just takes a
 nullable entity (such as a `std::optional`, `std::expected`,
-`std::unique_ptr`), and it will return a parser that, when
-run, will try to get the value from inside of it.  If the
-object does not contain a value, then the parser will fail.
+`std::unique_ptr`), and it will return a "fake" parser that, when
+run, will try to get the value from inside of the nullable
+object.  If the object does not contain a value, then the
+parser will fail.  If it does contain an object, the parser
+will yield it as its result.
 ```cpp
 template<Nullable N>
 parser<typename N::value_type> unwrap( N n );
-```
-
-## try_ignore
-The `try_ignore` parser will try running the given parser but ignore
-the result if it succeeds. As with `try_`, it will still
-succeed if the given parser fails, though it will return a
-`result_t` in an error state instead of failing the parent
-parser.
-```cpp
-template<Parser P>
-parser<> try_ignore( P p );
 ```
 
 Miscellaneous
@@ -735,7 +892,7 @@ Miscellaneous
 
 ## bracketed
 The `bracketed` parser runs the given parser p between characters
-l and r (or parsers l and r, depending on the overload chosen).
+`l` and `r` (or parsers `l` and `r`, depending on the overload chosen).
 ```cpp
 template<typename T>
 parser<T> bracketed( char l, parser<T> p, char r );
@@ -744,38 +901,14 @@ template<typename L, typename R, typename T>
 parser<T> bracketed( parser<L> l, parser<T> p, parser<R> r );
 ```
 
-Building and Running
-====================
-Since C++20 coroutines are a relatively new feature, compiler
-support is currently not perfect.
+For example, to parse an identifier between to curly braces,
+you could do:
 
-As of August, 2021, this library has only been tested successfully
-on Clang trunk and (partially successfully) with GCC 11.1.  The
-library runs well with Clang, but unfortunately GCC's coroutine
-support is still generally too buggy to run this reliably, though
-it does seem to be able to run the "hello world" parser example.
+```cpp
+using namespace parsco;
+using namespace std;
 
-Not yet tested with MSVC.
-
-Runtime Performance
--------------------
-There is good news and bad news... good news first: when using
-Clang with optimizations enabled (`-O3`), I have observed that a
-complex parser made of many combinators using this library can
-be optimized to a point where it runs around 15x slower than a
-parser hand-coded in C, in the benchmarks that I ran.  That may
-seem bad, but given how incredibly fast a hand-coded C parser
-can be, I'd say that is not so bad.
-
-The bad news is that, in non-optimized builds, the performance
-(relative to a hand-coded C parser) will be much worse.
-
-Again on the bright side, I think it is likely that compilers
-will get better in the future with Coroutine optimization and
-so this will hopefully be less of a problem.  Clang is already
-showing very good promise it seems.
-
-It is also likely that this library can be tweaked further to
-make it more ammenable to Clang's optimizations of Coroutines.
-PRs are welcome for that if anyone has any expertise there.
-
+string ident = co_await bracketed( '{',
+                                   identifier(),
+                                   '}' )
+```

@@ -32,20 +32,19 @@
 
 namespace parsco {
 
-namespace detail {
-parser<int>    parse_int_default();
-parser<double> parse_double_default();
-} // namespace detail
+// Sensible defaults.
+parser<int>    parse_int();
+parser<double> parse_double();
 
 // Assume that this will work the same way for any language.
 template<typename Lang>
 parser<int> parser_for( lang<Lang>, tag<int> ) {
-  return detail::parse_int_default();
+  return parse_int();
 }
 
 template<typename Lang>
 parser<double> parser_for( lang<Lang>, tag<double> ) {
-  return detail::parse_double_default();
+  return parse_double();
 }
 
 } // namespace parsco
