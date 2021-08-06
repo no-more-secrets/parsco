@@ -129,8 +129,10 @@ an example of running it:
 // This should conform to the above grammar.
 std::string_view test = "  hello, world!!!  ";
 
+// Filename is specified only to improve error messages.  In
+// this case, there is no filename.
 parsco::result_t<string> hw =
-    parsco::run_parser( "input", s, parse_hello_world() );
+    parsco::run_parser( "fake-filename.txt", test, parse_hello_world() );
 
 if( !hw ) {
   cout << "test \"" << s
