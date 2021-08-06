@@ -391,31 +391,34 @@ Not yet tested with MSVC.
 
 Runtime Performance
 -------------------
-There is good news and bad news... good news first: when using
-Clang with optimizations enabled (`-O3`), I have observed that a
-complex parser made of many combinators using this library can
-be optimized to a point where it runs around 15x slower than a
-parser hand-coded in C, in the benchmarks that I ran.  That may
-seem bad, but given how incredibly fast a hand-coded C parser
-can be, it is perhaps not so bad.  Given the high level of
-abstraction that can be attained using this library, it could
-easily be a valid tradeoff to make in some use cases.
+When using Clang with optimizations enabled (`-O3`), I have
+observed that a complex parser made of many combinators using
+this library can be optimized by the compiler to a point where
+it runs around 15x slower than a parser hand-coded in C, in the
+benchmarks that I ran.
 
-The bad news is that, in non-optimized builds, the performance
-(relative to said C parser) will be much worse.  I believe this
+Given how incredibly fast a hand-coded C parser can be, it is
+perhaps not so bad, especially given that there are likely many
+opportunities for further optimization in the library. Either
+way, given the high level of abstraction that can be attained
+using this library, it could be a valid tradeoff to make in some
+use cases.
+
+In non-optimized builds, the performance (relative to said C
+parser) will be much worse unfortunately.  I believe this
 is likely due to coroutine frame heap allocations not being
 elided in non-optimized builds.
 
-Again on the bright side, I think it is likely that compilers
-will get better in the future with Coroutine optimization and
-so this will hopefully be less of a problem.  Clang is already
-showing very good promise it seems.
+On the bright side, I think it is likely that compilers will get
+better in the future with Coroutine optimization and so this will
+hopefully be less of a problem.
 
-It is also likely that this library can be tweaked further to
+As mentioned, it is likely that this library can be tweaked further to
 make it more ammenable to Clang's optimizations of Coroutines.
-PRs are welcome for that if anyone has any expertise there,
-particular with regard to improving performance in non-optimized
-builds.
+PRs are welcome for that if anyone has any expertise there.
+
+I'd really like to improve the performance in non-optimized
+builds, but I'm not sure how feasible that is at this point.
 
 Error Messages
 --------------
