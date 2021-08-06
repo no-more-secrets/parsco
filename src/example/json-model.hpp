@@ -52,6 +52,7 @@ struct number {
   number() = default;
   number( int n ) : val( n ) {}
   number( double d ) : val( d ) {}
+  number( std::variant<int, double> v ) : val( v ) {}
   std::variant<int, double> val;
 };
 

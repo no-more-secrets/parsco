@@ -79,8 +79,8 @@ parser<boolean> parser_for( lang<Json>, tag<boolean> ) {
 ** number
 *****************************************************************/
 parser<number> parser_for( lang<Json>, tag<number> ) {
-  return emplace<number>( parse<Json, double>() ) |
-         emplace<number>( parse<Json, int>() );
+  // Delegate to variant parser, that's basically what number is.
+  co_return co_await parse<Json, variant<int, double>>();
 }
 
 /****************************************************************
