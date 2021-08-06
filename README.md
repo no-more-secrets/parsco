@@ -234,14 +234,25 @@ do the following:
 
 namespace your_ns {
 
+  // For exposition only.
   using parsco::lang;
   using parsco::tag;
+  using parsco::parser;
+
+  struct MyType {
+    int x;
+    int y;
+  };
 
   // A type tag representing the (custom) language that your
-  // parser parses.
+  // parser parses. All of your parsers for a given language will
+  // use the same type tag to guarantee at compile-time that they
+  // are not mixed. That means that you can safely have multiple
+  // parsers for different languages for the same user type My-
+  // Type and they won't interfere.
   struct MyLang {};
 
-  parsco::parser<MyType> parser_for( lang<MyLang>, tag<MyType> ) {
+  parser<MyType> parser_for( lang<MyLang>, tag<MyType> ) {
     // As an example, we're parse a point-like structure.
     int x = co_await parsco::parse<MyLang, int>();
     int y = co_await parsco::parse<MyLang, int>();
@@ -250,6 +261,18 @@ namespace your_ns {
 
 }
 ```
+
+Now, having defined that, any other code, including code
+internal to the Parsco library, can parse your type by
+running the following:
+
+```cpp
+MyType mt = co_await parsco::parse<MyLang, MyType>();
+```
+
+and your parser will be discovered through ADL.  You can use this
+to easily build generic parsers for e.g. `std::vector<T>` which
+then invoke `parsco::parse<SomeLang, T>()` to parse any type.
 
 Note on Asynchrony
 ------------------
