@@ -81,11 +81,10 @@ parser<string> parse_hello_world() {
 
   // Our grammar rules say that the two words must have the same
   // capitalization.
-  char w;
   if( h == 'h' )
-    w = co_await chr( 'w' );
+    co_await chr( 'w' );
   else
-    w = co_await chr( 'W' );
+    co_await chr( 'W' );
 
   // The remainder of the word must always be lowercase.
   co_await str( "orld" );
@@ -133,7 +132,7 @@ int main( int, char** ) {
     if( !hw ) {
       cout << "test \"" << s
            << "\" failed to parse; error message: "
-           << hw.error().what() << "\n";
+           << hw.get_error().what() << "\n";
       continue;
     }
     cout << "test \"" << s << "\" succeeded to parse.\n";

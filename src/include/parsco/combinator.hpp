@@ -472,7 +472,7 @@ struct Unwrap {
   template<typename T>
   parser<std::remove_cvref_t<decltype( *std::declval<T>() )>>
   operator()( T o ) const {
-    if( !o ) co_await fail( o.error().what() );
+    if( !o ) co_await fail( o.get_error().what() );
     co_return *std::move( o );
   }
 

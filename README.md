@@ -73,8 +73,9 @@ List of Combinators
 
 Below are each of the combinators that you can use to construct
 higher level parsers. For example, let's say that you want to use
-the `chr` parser to build a parser that parses any two-character
-string whre both characters are the same (e.g. "==", "aa") and
+the `chr` parser, which parses a single specific character,
+to build a parser that parses any two-character
+string where both characters are the same (e.g. "==", "aa") and
 then returns that character on success. You would do that like
 this:
 ```cpp
@@ -177,8 +178,8 @@ parser<char> not_of( std::string_view sv );
 ```
 
 The `eof` parser succeeds if the input stream is finished, and
-fails otherwise. Can be used to test if all input has been con-
-sumed.  Although see the `exhaust` parser below.
+fails otherwise. Can be used to test if all input has been consumed
+Although see the `exhaust` parser below.
 ```cpp
 parser<> eof();
 ```
@@ -221,8 +222,8 @@ parser<std::string> quoted_str();
 
 Combinators
 ===========
-The `pred` parser parses a single character for which the predi-
-cate returns true, fails otherwise.
+The `pred` parser parses a single character for which the predicate
+returns true, fails otherwise.
 ```cpp
 template<typename T>
 parser<char> pred( T func );
@@ -238,8 +239,8 @@ other than a character, or a `std::string` otherwise.
 
 The `many_exhaust` parser runs a `many` combinator, but one that
 expects to consume all of the input. The reason this is better
-than combining the `many` combinator with the `exhaust` combi-
-nator is because the `many_exhaust` combinator knows what it
+than combining the `many` combinator with the `exhaust` combinator
+is because the `many_exhaust` combinator knows what it
 failed to parse if it fails to parse the entire input and so can
 produce better error messages.
 
@@ -251,12 +252,13 @@ auto many_exhaust( Func f, Args... args ) const -> parser<R>;
 ```
 
 The `many_type` parser parses zero or more of the given type for
-the given language tag using the parsco ADH extension point mech-
-anism.
+the given language tag using the parsco ADH extension point mechanism.
 ```cpp
 template<typename Lang, typename T>
-parser<container<T>> many_type();
+parser<R> many_type();
 ```
+where `R` is a `std::vector` if the element parser returns something
+other than a character, or a `std::string` otherwise.
 
 The `many1` parser parses one or more of the given parser.
 ```cpp
@@ -266,8 +268,8 @@ auto many1( Func f, Args... args ) const -> parser<R>;
 where `R` is a `std::vector` if the element parser returns something
 other than a character, or a `std::string` otherwise.
 
-The `seq` parser runs multiple parsers in sequence, and only suc-
-ceeds if all of them succeed. Returns all results in a tuple.
+The `seq` parser runs multiple parsers in sequence, and only succeeds
+if all of them succeed. Returns all results in a tuple.
 ```cpp
 template<typename... Parsers>
 parser<std::tuple<...>> seq( Parsers... );
@@ -276,8 +278,8 @@ parser<std::tuple<...>> seq( Parsers... );
 The `invoke` parser calls the given function with the results of
 the parsers as arguments (which must all succeed).
 
-NOTE: the parsers are guaranteed to be run in the order they ap-
-pear in the parameter list, and that is one of the benefits of
+NOTE: the parsers are guaranteed to be run in the order they appear
+in the parameter list, and that is one of the benefits of
 using this helper.
 ```cpp
 template<typename Func, typename... Parsers>
@@ -347,8 +349,8 @@ template<typename L, typename R, typename T>
 parser<T> bracketed( parser<L> l, parser<T> p, parser<R> r );
 ```
 
-The `try_ignore` parser will try running the given parser but ig-
-nore the result if it succeeds. As with `try_`, it will still
+The `try_ignore` parser will try running the given parser but ignore
+the result if it succeeds. As with `try_`, it will still
 succeed if the given parser fails, though it will return a
 `result_t` in an error state instead of failing the parent
 parser.
@@ -400,8 +402,8 @@ parser<R> interleave( F f, G g, bool sep_required = true );
 ```
 where `R` is the `value_type` of the parser `f`.
 
-The `cat` parser runs multiple string-yielding parsers in se-
-quence and concatenates the results into one string.
+The `cat` parser runs multiple string-yielding parsers in sequence
+and concatenates the results into one string.
 ```cpp
 template<typename... Parsers>
 parser<std::string> cat( Parsers... ps );
@@ -437,3 +439,8 @@ parser<typename U::value_type> operator|( T l, U r ) {
 // Example
 co_await (identifier() | quoted_str());
 ```
+
+Building
+========
+Currently only clang 12+ is really supported, though you may have
+some luck with gcc/msvc.

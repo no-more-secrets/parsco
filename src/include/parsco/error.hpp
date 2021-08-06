@@ -73,8 +73,8 @@ struct result_t {
 
   operator bool() const { return val.has_value(); }
 
-  parsco::error const& error() const { return err; }
-  parsco::error&       error() { return err; }
+  error const& get_error() const { return err; }
+  error&       get_error() { return err; }
 
   T&       operator*() { return *val; }
   T const& operator*() const { return *val; }

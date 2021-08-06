@@ -141,7 +141,7 @@ int main( int, char** ) {
                                                 json );
 
   if( !doc ) {
-    cerr << "failed to parse json: " << doc.error().what()
+    cerr << "failed to parse json: " << doc.get_error().what()
          << "\n";
     return 1;
   }

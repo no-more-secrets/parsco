@@ -101,12 +101,12 @@ struct [[nodiscard]] parser {
 
   parsco::error& error() {
     assert( is_error() );
-    return promise_->o_->error();
+    return promise_->o_->get_error();
   }
 
   parsco::error const& error() const {
     assert( is_error() );
-    return promise_->o_->error();
+    return promise_->o_->get_error();
   }
 
   // This would be try anyway because of the unique_coro.
