@@ -471,6 +471,7 @@ parser<R> interleave( F f, G g, bool sep_required = true );
 ```
 where `R` is the `value_type` of the parser `f`.
 
+# cat
 The `cat` parser runs multiple string-yielding parsers in sequence
 and concatenates the results into one string.
 ```cpp
@@ -478,6 +479,7 @@ template<typename... Parsers>
 parser<std::string> cat( Parsers... ps );
 ```
 
+# >> operator
 The `>>` operator runs the parsers in sequence (all must succeed)
 and returns the result of the final one.
 ```cpp
@@ -488,6 +490,7 @@ parser<typename U::value_type> operator>>( T l, U r );
 co_await (blanks() >> identifier());
 ```
 
+# << operator
 The `<<` operator runs the parsers in sequence (all must succeed)
 and returns the result of the first one.
 ```cpp
@@ -498,6 +501,7 @@ parser<typename T::value_type> operator<<( T l, U r );
 co_await (identifier() << blanks());
 ```
 
+# | operator
 The `|` operator runs the parser in the order given and returns
 the result of the first one that succeeds.  The parsers must all
 return the same type.
