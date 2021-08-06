@@ -48,15 +48,21 @@ the C++20 `co_await` keyword to run them and get the result.
 
 When you `co_await` on a parser it does a few things for you:
 
-1. It automatically runs the parser and if the parser fails,
-it will return early from the coroutine and report failure to
-the parent (caller) coroutine.  The exception to this is if
-you wrap the parser in the `try_` combinator (see below), but
-this isn't often necessary.
+1. It automatically runs the parser and handles advancing
+the position in the input buffer in response.
 2. It will automatically detect EOF, which normally results
 in a failure.
-3. It will handle keeping track of the current position in the
-input buffer as well as the location of parsing errors if any.
+3. If the parser fails, it will suspend the coroutine and
+report failure to the parent (caller) coroutine, which will
+typically cascade and immediately cause the entire call stack
+to halt, providing an error message and input buffer location
+to the caller.  Although see the `try_` combinator further
+below for examples of how to backtrack in the case of failure.
+
+The coroutines thread the input buffer pointers and state through
+the coroutine call stack automatically and so there is no global
+state in the library, hence we have nice properties of being
+re-entrant and thread safe (in some sense).
 
 Example 2: The Hello World Parser
 ---------------------------------
