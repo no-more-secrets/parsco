@@ -48,10 +48,12 @@ the C++20 `co_await` keyword to run them and get the result.
 
 When you `co_await` on a parser it does a few things for you:
 
-1. It automatically runs the parser and handles advancing
+1. It automatically runs the parser and handle advancing
 the position in the input buffer in response.
-2. It will automatically detect EOF, which normally results
-in a failure.
+2. It will automatically detect and handle EOF; this means that
+it will stop parsing, and will do so either successfully or
+with failure depending on the nature of what is currently
+being parsed.
 3. If the parser fails, it will suspend the coroutine and
 report failure to the parent (caller) coroutine, which will
 typically cascade and immediately cause the entire call stack
@@ -339,6 +341,11 @@ and will destroy it when the parser object goes out of scope.
 This guarantees (in most use cases) that memory and lifetimes will
 be managed properly automatically without any special consideration
 from the user.
+
+It is also hoped that this ownership model will aid the optimizer
+in understanding that it can elide all of the coroutine state
+heap allocations (which I believe should be theoretically possible
+in all of the common use cases).
 
 Laziness and Parameter Lifetime
 -------------------------------
