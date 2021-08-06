@@ -281,7 +281,8 @@ asynchronous programming, they are not being used in that capacity
 here.  In this library they are used simply to act as glue for
 combinators that work in a synchronous way and that expect to have
 the entire input buffer in memory.  In fact, `parsco::parser<T>`
-coroutines that suspend will only suspend when they fail,
+coroutines that suspend will only suspend when they fail (apart
+from their initial suspend point, since they are lazy; see below),
 and will then never resume, similar to a `std::optional<T>`
 coroutine.
 
@@ -292,40 +293,31 @@ asynchronously, and will then be scheduled to resume when it does.
 The `parsco::parser<T>` type can be thought of as the C++ equivalent
 to Haskell's `Parsec` monad, for example.
 
-Building
---------
-Since C++20 coroutines are a relatively new feature, compiler
-support is currently not perfect.
+Laziness and Parameter Lifetime
+-------------------------------
+Parsco parser coroutines are lazy.  That means that when you
+invoke a `parsco::parser<T>` coroutine, it immediately suspends.
+In fact it _must_, because it does not yet have access to the input
+data at that point.  The parser is only resumed and run when it
+is `co_await`ed, at which point it is given access to the input
+data by its caller.
 
-As of August, 2021, this library has only been tested successfully
-on Clang trunk and (partially successfully) with GCC 11.1.  The
-library runs well with Clang, but unfortunately GCC's coroutine
-support is still generally too buggy to run this reliably, though
-it does seem to be able to run the "hello world" parser example.
+For that reason, if combinator functions were to accept parameters
+by reference, it could lead to thorny lifetime issues where the
+references become dangling when the parser suspends at its
+initial suspend point and then gets passed to another combinator
+before the end result is eventually `co_await`ed.
 
-Not yet tested with MSVC.
+Since it is not easy to avoid this when building up combinators,
+this library opts for the safe route and thus all combinators
+accept their arguments by value.  This may lead to slight
+inefficiencies, but it guarantees that there will not be any
+dangling references. The developer can thus freely create
+arbitrary combinator creations without having to reason about
+lifetime or dangling references.
 
-Runtime Performance
--------------------
-There is good news and bad news... good news first: when using
-Clang with optimizations enabled (`-O3`), I have observed that a
-complex parser made of many combinators using this library can
-be optimized to a point where it runs around 15x slower than a
-parser hand-coded in C, in the benchmarks that I ran.  That may
-seem bad, but given how incredibly fast a hand-coded C parser
-can be, I'd say that is not so bad.
-
-The bad news is that, in non-optimized builds, the performance
-(relative to a hand-coded C parser) will be much worse.
-
-Again on the bright side, I think it is likely that compilers
-will get better in the future with Coroutine optimization and
-so this will hopefully be less of a problem.  Clang is already
-showing very good promise it seems.
-
-It is also likely that this library can be tweaked further to
-make it more ammenable to Clang's optimizations of Coroutines.
-PRs are welcome for that if anyone has any expertise there.
+The examples in this library have been tested with ASan and they
+do come out clean, for what that is worth.
 
 Combinator Reference
 ====================
@@ -508,12 +500,14 @@ parser<R> many_type();
 where `R` is a `std::vector` if the element parser returns something
 other than a character, or a `std::string` otherwise.
 
-See the JSON example in the examples folder for how to make
-user-defined types parsable using the ADL extension point of
-the parsco library.
+See the JSON example in the examples folder or the above section
+on user types for how to make user-defined types parsable using
+the ADL extension point of the parsco library.
 
 ## many1
-The `many1` parser parses one or more of the given parser.
+The `many1` parser parses one or more of the given parser
+(technically it's the parser returned by invoking the given
+function on the given arguments).
 ```cpp
 template<typename Func, typename... Args>
 auto many1( Func f, Args... args ) const -> parser<R>;
@@ -528,15 +522,22 @@ if all of them succeed. Returns all results in a tuple.
 template<typename... Parsers>
 parser<std::tuple<...>> seq( Parsers... );
 ```
+This combinator takes parser objects directly (as opposed to
+functions-that-return-parsers) because each parser only needs to
+be run at most once. Although note that if a parser fails, the
+subsequent ones will not be run.
 
 ## seq_last
 The `seq_last` parser runs multiple parsers in sequence, and only
-succeeds if all of them succeed. Returns last result.
+succeeds if all of them succeed. Returns the result of the
+last parser.
 ```cpp
 template<typename... Parsers>
 parser<R> seq_last( Parsers... ps );
 ```
-where `R` is the `value_type` of the last parser in the argument list
+where `R` is the `value_type` of the last parser in the argument list.
+As above, this combinator also takes parser objects directly as opposed
+to functions.
 
 ## seq_first
 The `seq_first` parser runs multiple parsers in sequence, and only
@@ -545,7 +546,9 @@ succeeds if all of them succeed. Returns first result.
 template<typename... Parsers>
 parser<R> seq_first( Parsers... ps );
 ```
-where `R` is the `value_type` of the first parser in the argument list
+where `R` is the `value_type` of the first parser in the argument list.
+As above, this combinator also takes parser objects directly as opposed
+to functions.
 
 ## interleave_first
 The `interleave_first` parses "g f g f g f" and returns the f's.
@@ -553,7 +556,8 @@ The `interleave_first` parses "g f g f g f" and returns the f's.
 template<typename F, typename G>
 parser<R> interleave_first( F f, G g, bool sep_required = true );
 ```
-where `R` is the `value_type` of the parser `f`.
+where `R` is the `value_type` of the parser `f`.  `F` and `G` are
+nullary functions that return parser objects.
 
 ## interleave_last
 The `interleave_last` parses "f g f g f g" and returns the f's.
@@ -561,7 +565,8 @@ The `interleave_last` parses "f g f g f g" and returns the f's.
 template<typename F, typename G>
 parser<R> interleave_last( F f, G g, bool sep_required = true );
 ```
-where `R` is the `value_type` of the parser `f`.
+where `R` is the `value_type` of the parser `f`.  `F` and `G` are
+nullary functions that return parser objects.
 
 ## interleave
 The `interleave` parses "f g f g f" and returns the f's.
@@ -569,7 +574,8 @@ The `interleave` parses "f g f g f" and returns the f's.
 template<typename F, typename G>
 parser<R> interleave( F f, G g, bool sep_required = true );
 ```
-where `R` is the `value_type` of the parser `f`.
+where `R` is the `value_type` of the parser `f`.  `F` and `G` are
+nullary functions that return parser objects.
 
 ## cat
 The `cat` parser runs multiple string-yielding parsers in sequence
@@ -578,6 +584,7 @@ and concatenates the results into one string.
 template<typename... Parsers>
 parser<std::string> cat( Parsers... ps );
 ```
+In other words, each of the `Parsers` must be a `parser<std::string>`.
 
 ## >> operator
 The `>>` operator runs the parsers in sequence (all must succeed)
@@ -600,6 +607,10 @@ parser<typename T::value_type> operator<<( T l, U r );
 // Example
 co_await (identifier() << blanks());
 ```
+Note: despite the direction that the operator is pointing (`<<`),
+the parsers are still run from left-to-right order, and the
+result of the left-most one is returned, assuming of course
+that they all succeed.
 
 Alternatives
 ------------
@@ -619,6 +630,8 @@ requires( std::is_same_v<typename P::value_type,
                          typename Ps::value_type> && ...)
 parser<R> first( P fst, Ps... rest );
 ```
+where `R` is `P::value_type`.  When one parser succeeds,
+subsequent parsers will not be run.
 
 ## | operator
 The `|` operator runs the parser in the order given and returns
@@ -631,9 +644,13 @@ parser<typename U::value_type> operator|( T l, U r ) {
 // Example
 co_await (identifier() | quoted_str());
 ```
+This is equivalent to the `first` parser above.
 
 Function Application
 --------------------
+
+The combinators in this section have to do with invoking functions
+on the results of parsers.
 
 ## invoke
 The `invoke` parser calls the given function with the results of
@@ -726,3 +743,39 @@ parser<T> bracketed( char l, parser<T> p, char r );
 template<typename L, typename R, typename T>
 parser<T> bracketed( parser<L> l, parser<T> p, parser<R> r );
 ```
+
+Building and Running
+====================
+Since C++20 coroutines are a relatively new feature, compiler
+support is currently not perfect.
+
+As of August, 2021, this library has only been tested successfully
+on Clang trunk and (partially successfully) with GCC 11.1.  The
+library runs well with Clang, but unfortunately GCC's coroutine
+support is still generally too buggy to run this reliably, though
+it does seem to be able to run the "hello world" parser example.
+
+Not yet tested with MSVC.
+
+Runtime Performance
+-------------------
+There is good news and bad news... good news first: when using
+Clang with optimizations enabled (`-O3`), I have observed that a
+complex parser made of many combinators using this library can
+be optimized to a point where it runs around 15x slower than a
+parser hand-coded in C, in the benchmarks that I ran.  That may
+seem bad, but given how incredibly fast a hand-coded C parser
+can be, I'd say that is not so bad.
+
+The bad news is that, in non-optimized builds, the performance
+(relative to a hand-coded C parser) will be much worse.
+
+Again on the bright side, I think it is likely that compilers
+will get better in the future with Coroutine optimization and
+so this will hopefully be less of a problem.  Clang is already
+showing very good promise it seems.
+
+It is also likely that this library can be tweaked further to
+make it more ammenable to Clang's optimizations of Coroutines.
+PRs are welcome for that if anyone has any expertise there.
+
