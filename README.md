@@ -180,16 +180,28 @@ Combinator Reference
 
 Basic/Primitive Parsers
 -----------------------
+
+## chr
 The `chr` parser consumes a char that must be c, otherwise it fails.
 ```cpp
 parser<char> chr( char c );
 ```
 
+## any_chr
 The `any_chr` parser consumes any char, fails only at eof.
 ```cpp
 parser<char> any_chr();
 ```
 
+## pred
+The `pred` parser parses a single character for which the predicate
+returns true, fails otherwise.
+```cpp
+template<typename T>
+parser<char> pred( T func );
+```
+
+## ret
 The `ret` parser returns a parser that always succeeds and produces
 the given value.
 ```cpp
@@ -197,35 +209,41 @@ template<typename T>
 parser<T> ret( T );
 ```
 
+## space
 The `space` parser consumes one space (as in space bar) character.
 Will fail if it does not find one.
 ```cpp
 parser<> space();
 ```
 
+## crlf
 The `crlf` parser consumes one character that must be either a CR
 or LF, and Will fail if it does not find one.
 ```cpp
 parser<> crlf();
 ```
 
+## tab
 The `tab` parser consumes one tab character. Will fail if it does
 not find one.
 ```cpp
 parser<> tab();
 ```
 
+## blank
 The `blank` parser consumes one character that must be either a
 space, tab, CR, or LF, and fails otherwise.
 ```cpp
 parser<> blank();
 ```
 
+## digit
 The `digit` parser consumes one digit [0-9] char or fails.
 ```cpp
 parser<char> digit();
 ```
 
+## lower/upper/alpha/alphanum
 The following do what you'd think they do:
 ```cpp
 parser<char> lower();
@@ -234,18 +252,21 @@ parser<char> alpha();
 parser<char> alphanum();
 ```
 
+## one_of
 The `one_of` parser consumes one char if it is one of the ones in
 sv, otherwise fails.
 ```cpp
 parser<char> one_of( std::string_view sv );
 ```
 
+## not_of
 The `not_of` parser consumes one char if it is not one of the
 ones in sv, otherwise fails.
 ```cpp
 parser<char> not_of( std::string_view sv );
 ```
 
+## eof
 The `eof` parser succeeds if the input stream is finished, and
 fails otherwise. Can be used to test if all input has been consumed
 Although see the `exhaust` parser below.
@@ -254,25 +275,30 @@ parser<> eof();
 ```
 
 Strings
-=======
+-------
+
+## str
 The `str` parser attempts to consume the exact string given at
 the current position in the input string, and fails otherwise.
 ```cpp
 parser<> str( std::string_view sv );
 ```
 
+## identifier
 The `identifier` parser attempts to parse a valid identifier,
 which must match the regex `[a-zA-Z_][a-zA-Z0-9_]*`.
 ```cpp
 parser<std::string> identifier();
 ```
 
+## blanks
 The `blanks` parser consumes zero or more blank spaces (including
 newlines and tabs). It will never fail.
 ```cpp
 parser<> blanks();
 ```
 
+## double_quoted_str / single_quoted_str
 The `double_quoted_str` and `singel_quoted_str` respectively
 parse "..." or '...' and returns the stuff inside, which cannot
 contain newlines. Note that these return string views into the
@@ -282,6 +308,7 @@ parser<std::string_view> double_quoted_str();
 parser<std::string_view> single_quoted_str();
 ```
 
+## quoted_str
 The `quoted_str` parser parses a string that is either in double
 quotes or single quotes. Does not allow escaped quotes within the
 string.
@@ -289,18 +316,8 @@ string.
 parser<std::string> quoted_str();
 ```
 
-Combinators
-===========
-
-Almost all combinators are listed below along with signatures.
-
-## pred
-The `pred` parser parses a single character for which the predicate
-returns true, fails otherwise.
-```cpp
-template<typename T>
-parser<char> pred( T func );
-```
+Sequences
+---------
 
 ## many
 The `many` parser parses zero or more of the given parser.
@@ -338,29 +355,6 @@ template<typename... Parsers>
 parser<std::tuple<...>> seq( Parsers... );
 ```
 
-## invoke
-The `invoke` parser calls the given function with the results of
-the parsers as arguments (which must all succeed).
-
-NOTE: the parsers are guaranteed to be run in the order they appear
-in the parameter list, and that is one of the benefits of
-using this helper.
-```cpp
-template<typename Func, typename... Parsers>
-parser<R> invoke( Func f, Parsers... ps );
-```
-where `R` is the result type of the function `f` when invoked
-with the results of all of the parsers are arguments.
-
-
-## emplace
-The `emplace` parser calls the constructor of the given type with
-the results of the parsers as arguments (which must all succeed).
-```cpp
-template<typename T, typename... Parsers>
-parser<T> emplace( Parsers... ps );
-```
-
 ## seq_last
 The `seq_last` parser runs multiple parsers in sequence, and only
 succeeds if all of them succeed. Returns last result.
@@ -378,82 +372,6 @@ template<typename... Parsers>
 parser<R> seq_first( Parsers... ps );
 ```
 where `R` is the `value_type` of the first parser in the argument list
-
-## on_error
-The `on_error` combinator runs the given parser and if it fails
-it will return the error message given (as opposed to any error
-message that was produced by the parser).
-```cpp
-template<typename Parser>
-Parser on_error( Parser p, std::string_view err_msg );
-```
-
-## exhaust
-The `exhaust` parser runs the given parser and then checks that
-the input buffers has been exhausted (if not, it fails). Returns
-the result from the parser on success (i.e., when all input has
-been consumed).
-```cpp
-template<typename Parser>
-Parser exhaust( Parser p );
-```
-
-## unwrap
-The `unwrap` parser is not really a parser, it just takes a
-nullable entity (such as a `std::optional`, `std::expected`,
-`std::unique_ptr`), and it will return a parser that, when
-run, will try to get the value from inside of it.  If the
-object does not contain a value, then the parser will fail.
-```cpp
-template<Nullable N>
-parser<typename N::value_type> unwrap( N n );
-```
-
-## bracketed
-The `bracketed` parser runs the given parser p between characters
-l and r (or parsers l and r, depending on the overload chosen).
-```cpp
-template<typename T>
-parser<T> bracketed( char l, parser<T> p, char r );
-
-template<typename L, typename R, typename T>
-parser<T> bracketed( parser<L> l, parser<T> p, parser<R> r );
-```
-
-## try_ignore
-The `try_ignore` parser will try running the given parser but ignore
-the result if it succeeds. As with `try_`, it will still
-succeed if the given parser fails, though it will return a
-`result_t` in an error state instead of failing the parent
-parser.
-```cpp
-template<Parser P>
-parser<> try_ignore( P p );
-```
-
-## fmap
-The classic `fmap` combinator runs the parser p and applies the
-given function to the result, if successful.
-```cpp
-template<Parser P, typename Func>
-  requires( std::is_invocable_v<Func, typename P::value_type> )
-parser<R> fmap( Func f, P p );
-```
-where `R` is the result of invoking the function on the
-`value_type` of the parser `p`.
-
-## first
-The `first` parser runs the parsers in sequence until the first
-one succeeds, then returns its result (all of the parsers must
-return the same result type). If none of them succeed then the
-parser fails. Another way to use this combinator is to use the
-pipe (`|`) operator defined below.
-```cpp
-template<typename P, typename... Ps>
-requires( std::is_same_v<typename P::value_type,
-                         typename Ps::value_type> && ...)
-parser<R> first( P fst, Ps... rest );
-```
 
 ## interleave_first
 The `interleave_first` parses "g f g f g f" and returns the f's.
@@ -509,6 +427,25 @@ parser<typename T::value_type> operator<<( T l, U r );
 co_await (identifier() << blanks());
 ```
 
+Alternatives
+------------
+
+This means that we give a set of possible parsers, only one of
+which needs to succeed.
+
+## first
+The `first` parser runs the parsers in sequence until the first
+one succeeds, then returns its result (all of the parsers must
+return the same result type). If none of them succeed then the
+parser fails. Another way to use this combinator is to use the
+pipe (`|`) operator defined below.
+```cpp
+template<typename P, typename... Ps>
+requires( std::is_same_v<typename P::value_type,
+                         typename Ps::value_type> && ...)
+parser<R> first( P fst, Ps... rest );
+```
+
 ## | operator
 The `|` operator runs the parser in the order given and returns
 the result of the first one that succeeds.  The parsers must all
@@ -519,4 +456,99 @@ parser<typename U::value_type> operator|( T l, U r ) {
 
 // Example
 co_await (identifier() | quoted_str());
+```
+
+Function Application
+--------------------
+
+## invoke
+The `invoke` parser calls the given function with the results of
+the parsers as arguments (which must all succeed).
+
+NOTE: the parsers are guaranteed to be run in the order they appear
+in the parameter list, and that is one of the benefits of
+using this helper.
+```cpp
+template<typename Func, typename... Parsers>
+parser<R> invoke( Func f, Parsers... ps );
+```
+where `R` is the result type of the function `f` when invoked
+with the results of all of the parsers are arguments.
+
+
+## emplace
+The `emplace` parser calls the constructor of the given type with
+the results of the parsers as arguments (which must all succeed).
+```cpp
+template<typename T, typename... Parsers>
+parser<T> emplace( Parsers... ps );
+```
+
+## fmap
+The classic `fmap` combinator runs the parser p and applies the
+given function to the result, if successful.
+```cpp
+template<Parser P, typename Func>
+  requires( std::is_invocable_v<Func, typename P::value_type> )
+parser<R> fmap( Func f, P p );
+```
+where `R` is the result of invoking the function on the
+`value_type` of the parser `p`.
+
+Error Detection
+---------------
+
+## on_error
+The `on_error` combinator runs the given parser and if it fails
+it will return the error message given (as opposed to any error
+message that was produced by the parser).
+```cpp
+template<typename Parser>
+Parser on_error( Parser p, std::string_view err_msg );
+```
+
+## exhaust
+The `exhaust` parser runs the given parser and then checks that
+the input buffers has been exhausted (if not, it fails). Returns
+the result from the parser on success (i.e., when all input has
+been consumed).
+```cpp
+template<typename Parser>
+Parser exhaust( Parser p );
+```
+
+## unwrap
+The `unwrap` parser is not really a parser, it just takes a
+nullable entity (such as a `std::optional`, `std::expected`,
+`std::unique_ptr`), and it will return a parser that, when
+run, will try to get the value from inside of it.  If the
+object does not contain a value, then the parser will fail.
+```cpp
+template<Nullable N>
+parser<typename N::value_type> unwrap( N n );
+```
+
+## try_ignore
+The `try_ignore` parser will try running the given parser but ignore
+the result if it succeeds. As with `try_`, it will still
+succeed if the given parser fails, though it will return a
+`result_t` in an error state instead of failing the parent
+parser.
+```cpp
+template<Parser P>
+parser<> try_ignore( P p );
+```
+
+Miscellaneous
+-------------
+
+## bracketed
+The `bracketed` parser runs the given parser p between characters
+l and r (or parsers l and r, depending on the overload chosen).
+```cpp
+template<typename T>
+parser<T> bracketed( char l, parser<T> p, char r );
+
+template<typename L, typename R, typename T>
+parser<T> bracketed( parser<L> l, parser<T> p, parser<R> r );
 ```
