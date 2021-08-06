@@ -96,17 +96,17 @@ parser<string> parse_hello_world() {
     co_await many1( space );
 
   // The two words must have the same capitalization.
-  char w;
   if( h == 'h' )
-    w = co_await chr( 'w' );
+    co_await chr( 'w' );
   else
-    w = co_await chr( 'W' );
+    co_await chr( 'W' );
 
   // The remainder of the word must always be lowercase.
   co_await str( "orld" );
 
   // Parse zero or more exclamation marks.
   co_await many( [] { return chr( '!' ); } );
+  // Could also have written many( chr, '!' ).
 
   // Eat blanks. We could have used the >> operator again to se-
   // quence this, or we can put it as its own statement.
