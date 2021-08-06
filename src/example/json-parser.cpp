@@ -79,10 +79,8 @@ parser<boolean> parser_for( lang<Json>, tag<boolean> ) {
 ** number
 *****************************************************************/
 parser<number> parser_for( lang<Json>, tag<number> ) {
-  return fmap( []( auto n ) { return number{ n }; },
-               parse<Json, double>() ) |
-         fmap( []( auto n ) { return number{ n }; },
-               parse<Json, int>() );
+  return emplace<number>( parse<Json, double>() ) |
+         emplace<number>( parse<Json, int>() );
 }
 
 /****************************************************************
