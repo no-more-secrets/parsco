@@ -95,7 +95,10 @@ Examples:
 The following is a parsco parser that parses this grammar:
 
 ```cpp
-parser<string> parse_hello_world() {
+parsco::parser<string> parse_hello_world() {
+  // Combinators live in this namespace.
+  using namespace parsco;
+
   // Parse blanks and then either h/H.
   char h = co_await( blanks() >> one_of( "hH" ) );
 
@@ -124,9 +127,9 @@ parser<string> parse_hello_world() {
 
   // Parse zero or more exclamation marks. Could also have
   // written many( chr, '!' ).
-  string excls = co_await many( [] { return chr( '!' ); } );
+  std::string excls = co_await many( [] { return chr( '!' ); } );
 
-  // Grammar says number of exclamation marks must be unique.
+  // Grammar says number of exclamation marks must be even.
   if( excls.size() % 2 != 0 )
     co_await fail( "must have even # of !s" );
 
@@ -211,6 +214,42 @@ JSON Parser
 To see a more realistic example, see the `json-parser.cpp` file
 in the examples folder which contains a JSON parser constructed
 using the combinators in this library.
+
+User-Defined Types
+------------------
+The Parsco library provides an ADL-based extension point so that
+you can define parsers for user-defined types in a consistent
+manner and that will be discoverable by the library.  For example,
+the library provides a parser for `std::variant` which will
+invoke the extension point to attempt to parse the types that
+it contains, which may be user-defined types.  To define a parser
+for some user type `MyType` which lives in your namespace `your_ns`,
+do the following:
+
+```cpp
+#incldue "parsco/ext.hpp"
+#incldue "parsco/parser.hpp"
+#incldue "parsco/promise.hpp"
+#incldue "parsco/ext-basic.hpp"
+
+namespace your_ns {
+
+  using parsco::lang;
+  using parsco::tag;
+
+  // A type tag representing the (custom) language that your
+  // parser parses.
+  struct MyLang {};
+
+  parsco::parser<MyType> parser_for( lang<MyLang>, tag<MyType> ) {
+    // As an example, we're parse a point-like structure.
+    int x = co_await parsco::parse<MyLang, int>();
+    int y = co_await parsco::parse<MyLang, int>();
+    co_return MyType{ x, y };
+  }
+
+}
+```
 
 Note on Asynchrony
 ------------------
@@ -411,14 +450,14 @@ parser<std::string> quoted_str();
 Sequences
 ---------
 Many of the combinators in this section are actually higher-order
-functions.  They take functions that, when called, produce parser
-objects and then run those parser objects, typically in some
-kind of repeated fashion.
+functions. They take functions that, when called (which is typ-
+ically done in some repeated fashion), produce parser objects to
+be run.
 
 A single `parser<T>` object represents a live coroutine, and so
 it itself cannot be run multiple times; instead, if a combinator
 needs to run a user-specified parser multiple times, it must
-accept a function that generates those parsers.
+accept a function that produces those parsers when called.
 
 ## many
 The `many` parser parses zero or more of the given parser.
@@ -426,18 +465,29 @@ The `many` parser parses zero or more of the given parser.
 template<typename Func, typename... Args>
 auto many( Func f, Args... args ) const -> parser<R>;
 ```
-where `R` is a `std::vector` if the element parser returns something
+where again the arguments to the combinator are no actually
+a parser, but instead a function (and arguments) which, when
+called, produce parser objects.  The function will be invoked
+on the arguments possibly  multiple times.
+
+`R` is a `std::vector` if the element parser returns something
 other than a character, or a `std::string` otherwise.
 
 ## many_type
 The `many_type` parser parses zero or more of the given type for
 the given language tag using the parsco ADH extension point mechanism.
+That is, it will call `parsco::parse<Lang, T>()` to parse a `T`
+and may do so multiple times.
 ```cpp
 template<typename Lang, typename T>
 parser<R> many_type();
 ```
 where `R` is a `std::vector` if the element parser returns something
 other than a character, or a `std::string` otherwise.
+
+See the JSON example in the examples folder for how to make
+user-defined types parsable using the ADL extension point of
+the parsco library.
 
 ## many1
 The `many1` parser parses one or more of the given parser.
