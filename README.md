@@ -1,10 +1,12 @@
-parsco
+PARSCO
 ------
 C++20 Coroutine Synchronous Parser Combinator Library.
 
 This library contains a monadic parser type and associated
 combinators that can be composed to create parsers using
 C++20 Coroutines.
+
+PRs are welcome.
 
 What is a Coroutine Combinator
 ==============================
@@ -162,7 +164,7 @@ The `parsco::parser<T>` type can be thought of as the C++ equivalent
 to Haskell's `Parsec` monad, for example.
 
 Building
-========
+--------
 
 Since C++20 coroutines are a relatively new feature, compiler
 support is currently not perfect.
@@ -174,6 +176,29 @@ support is still generally too buggy to run this reliably, though
 it does seem to be able to run the "hello world" parser example.
 
 Not yet tested with MSVC.
+
+Runtime Performance
+-------------------
+
+There is good news and bad news... good news first: when using
+Clang with optimizations enabled (`-O3`), I have observed that a
+complex parser made of many combinators using this library can
+be optimized to a point where it runs around 15x slower than a
+parser hand-coded in C, in the benchmarks that I ran.  That may
+seem bad, but given how incredibly fast a hand-coded C parser
+can be, I'd say that is not bad.
+
+The bad news is that, in non-optimized builds, the performance
+(relative to a hand-coded C parser) will be much worse.
+
+Again on the bright side, I think it is likely that compilers
+will get better in the future with Coroutine optimization and
+so this will hopefully be less of a problem.  Clang is already
+showing very good promise it seems.
+
+It is also likely that this library can be tweaked further to
+make it more ammenable to Clang's optimizations of Coroutines.
+PRs are welcome for that if anyone has any expertise there.
 
 Combinator Reference
 ====================
