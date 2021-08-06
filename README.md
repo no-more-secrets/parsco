@@ -218,11 +218,13 @@ Note that in those cases where we provided an error message
 ourselves via the `fail` combinator, it gives it to the user
 for a better experience.
 
-JSON Parser
------------
+Example 3: JSON Parser
+----------------------
 To see a more realistic example, see the `json-parser.cpp` file
 in the examples folder which contains a JSON parser constructed
-using the combinators in this library.
+using the combinators in this library.  In addition, the JSON parser
+leverages the ADL extension point mechanism of the library, as
+described in the next section.
 
 User-Defined Types
 ------------------
