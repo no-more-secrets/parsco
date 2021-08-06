@@ -885,7 +885,7 @@ In particular, note that we are not `co_await`ing on the results
 of the `parse_int()` calls; we just give the combinators to
 `emplace` and it does the rest.  This can reduce some verbosity
 in parsers from time to time.  Think of this as an analog to
-Haskell's `<$>`/`<*>` operators for Applicatives.
+Haskell's `<$>` operator for Applicatives.
 
 ## fmap
 The venerable `fmap` combinator runs the parser `p` and applies the
@@ -897,13 +897,14 @@ template<Parser P, typename Func>
 parser<R> fmap( Func f, P p );
 ```
 where `R` is the result of invoking the function on the
-`value_type` of the parser `p`.
+`value_type` of the parser `p`.  This can be seen as a
+single-parameter version of the `invoke` combinator above.
 
 Error Detection
 ---------------
 
 ## try_
-The `try_` combinator allowed attempting a parser which may not
+The `try_` combinator allows attempting a parser which may not
 succeed. See the section on "Failure and Bactracking" for an
 example of how this is used.
 
@@ -916,7 +917,27 @@ template<typename Parser>
 Parser on_error( Parser p, std::string_view err_msg );
 ```
 This is used to provide more meaningful error messages to users
-in response to a given parser having failed.
+in response to a given parser having failed.  If you use this
+combinator at all, then generally you'll want to use it on
+lower-level (leaf) parsers as opposed to using it to wrap higher
+level parsers; if you do the latter then it will effectively
+suppress error messages from all lower parsers, replacing them
+with a single error message, which is probably not useful to
+the user.
+
+A better use would be with a parser like `chr`:
+
+```cpp
+using namespace parsco;
+
+char c = co_await on_error( chr( '=' ), "assignment operator is required because..." );
+```
+
+which will give the user a meaningful error message; had the
+`on_error` combinator not been used, then the error message
+would have defaulted to that produced by `chr`, which, at
+best, would be limited to something like "expected =" (that
+is the best that the `chr` combinator can do on its own).
 
 ## exhaust
 The `exhaust` parser runs the given parser and then checks that
