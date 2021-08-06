@@ -954,3 +954,15 @@ string ident = co_await bracketed( '{',
                                    identifier(),
                                    '}' )
 ```
+
+Combinator Niebloids
+--------------------
+As a quick implementation note on the above combinators, if you
+look at the source code (mainly in `combinators.hpp`) you'll
+notice that many of them are implemented as niebloids instead
+of function templates.  This is actually not to do with ADL
+but instead is to work around an issue that Clang seems to
+have with function template coroutines (it yields strange
+runtime errors when such a coroutine is called).  Hopefully
+that will be fixed eventually, at which point the niebloids
+in this library can be changed back to function templates.
