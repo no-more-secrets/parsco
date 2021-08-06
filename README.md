@@ -69,10 +69,47 @@ will find a JSON parser.
 
 
 List of Combinators
--------------------
+===================
+
+Below are each of the combinators that you can use to construct
+higher level parsers. For example, let's say that you want to use
+the `chr` parser to build a parser that parses any two-character
+string whre both characters are the same (e.g. "==", "aa") and
+then returns that character on success. You would do that like
+this:
+```cpp
+parsco::parser<char> parse_two_same() {
+  char c = co_await parsco::any_chr();
+  co_await parsco::chr( c );
+  co_return c;
+}
+
+// Another way to implement it would be:
+parsco::parser<char> parse_two_same() {
+  char c1 = co_await parsco::any_chr();
+  char c2 = co_await parsco::any_chr();
+  if( c1 != c2 )
+    co_await parsco::fail( "expected two equal chars" );
+  co_return c;
+}
+```
+The second version has the advantage that it provides an error
+message which can be presented to the user if the parser fails.
+
+When you `co_await` on a parser it does a few things for you:
+
+1. It automatically runs the parser and if the parser fails,
+it will return early from the coroutine and report failure to
+the parent (caller) coroutine.  The exception to this is if
+you wrap the parser in the `try_` combinator (see below), but
+this isn't often necessary.
+2. It will automatically detect EOF, which normally results
+in a failure.
+3. It will handle keeping track of the current position in the
+input buffer as well as the location of parsing errors if any.
 
 Basic/Primitive Parsers
-=======================
+-----------------------
 The `chr` parser consumes a char that must be c, otherwise it fails.
 ```cpp
 parser<char> chr( char c );
