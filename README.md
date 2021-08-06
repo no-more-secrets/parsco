@@ -526,14 +526,14 @@ parser<char> alphanum();
 The `one_of` parser consumes one char if it is one of the ones in
 sv, otherwise fails.
 ```cpp
-parser<char> one_of( std::string_view sv );
+parser<char> one_of( std::string sv );
 ```
 
 ## not_of
 The `not_of` parser consumes one char if it is not one of the
 ones in sv, otherwise fails.
 ```cpp
-parser<char> not_of( std::string_view sv );
+parser<char> not_of( std::string sv );
 ```
 
 ## eof
@@ -593,7 +593,7 @@ Strings
 The `str` parser attempts to consume the exact string given at
 the current position in the input string, and fails otherwise.
 ```cpp
-parser<> str( std::string_view sv );
+parser<> str( std::string sv );
 ```
 
 ## identifier
@@ -903,18 +903,13 @@ single-parameter version of the `invoke` combinator above.
 Error Detection
 ---------------
 
-## try_
-The `try_` combinator allows attempting a parser which may not
-succeed. See the section on "Failure and Bactracking" for an
-example of how this is used.
-
 ## on_error
 The `on_error` combinator runs the given parser and if it fails
 it will return the error message given (as opposed to any error
 message that was produced by the parser).
 ```cpp
 template<typename Parser>
-Parser on_error( Parser p, std::string_view err_msg );
+Parser on_error( Parser p, std::string err_msg );
 ```
 This is used to provide more meaningful error messages to users
 in response to a given parser having failed.  If you use this

@@ -86,19 +86,19 @@ parser<string> identifier() {
 
 parser<char> digit() { return pred( is_digit ); }
 
-parser<> str( string_view sv ) {
+parser<> str( string sv ) {
   for( char c : sv ) co_await chr( c );
 }
 
-parser<char> one_of( string_view sv ) {
+parser<char> one_of( string sv ) {
   return pred( [sv]( char c ) {
-    return sv.find_first_of( c ) != string_view::npos;
+    return sv.find_first_of( c ) != string::npos;
   } );
 }
 
-parser<char> not_of( string_view sv ) {
+parser<char> not_of( string sv ) {
   return pred( [sv]( char c ) {
-    return sv.find_first_of( c ) == string_view::npos;
+    return sv.find_first_of( c ) == string::npos;
   } );
 }
 

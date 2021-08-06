@@ -108,14 +108,14 @@ parser<char> alpha();
 parser<char> alphanum();
 
 // Consumes one char if it is one of the ones in sv.
-parser<char> one_of( std::string_view sv );
-parser<char> not_of( std::string_view sv );
+parser<char> one_of( std::string sv );
+parser<char> not_of( std::string sv );
 
 /****************************************************************
 ** Strings
 *****************************************************************/
 // Attempts to consume the exact string, and fails otherwise.
-parser<> str( std::string_view sv );
+parser<> str( std::string sv );
 
 parser<std::string> identifier();
 
@@ -399,7 +399,7 @@ inline constexpr SeqFirst seq_first{};
 *****************************************************************/
 struct OnError {
   template<Parser P>
-  P operator()( P p, std::string_view msg ) const {
+  P operator()( P p, std::string msg ) const {
     auto res = co_await try_{ std::move( p ) };
     if( res.has_value() ) co_return *res;
     co_await fail( msg );
