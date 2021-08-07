@@ -80,7 +80,7 @@ parser<boolean> parser_for( lang<Json>, tag<boolean> ) {
 *****************************************************************/
 parser<number> parser_for( lang<Json>, tag<number> ) {
   // Delegate to variant parser, that's basically what number is.
-  co_return co_await parse<Json, variant<int, double>>();
+  co_return co_await parse<Json, variant<double, int>>();
 }
 
 /****************************************************************

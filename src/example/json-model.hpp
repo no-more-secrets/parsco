@@ -52,8 +52,11 @@ struct number {
   number() = default;
   number( int n ) : val( n ) {}
   number( double d ) : val( d ) {}
-  number( std::variant<int, double> v ) : val( v ) {}
-  std::variant<int, double> val;
+  number( std::variant<double, int> v ) : val( v ) {}
+  // Need to have double first because we want to attempt to
+  // parse in that order because, syntatically, ints are a subset
+  // of possible doubles.
+  std::variant<double, int> val;
 };
 
 struct boolean {
