@@ -276,8 +276,6 @@ struct Invoke {
   // Take func by value for lifetime reasons.
   // clang-format off
   template<size_t... Idx, typename Func, typename... Parsers>
-  requires( std::is_default_constructible_v<
-                typename Parsers::value_type> && ... )
   parser<std::invoke_result_t<Func,
                               typename Parsers::value_type...>>
   run( std::index_sequence<Idx...>, Func func,
@@ -295,23 +293,26 @@ struct Invoke {
     //   https://stackoverflow.com/questions/46056268/
     //                order-of-evaluation-for-fold-expressions
     //
-    auto ps_tpl = std::tuple{ std::move( ps )... };
-    std::tuple<typename Parsers::value_type...> res_tpl;
+    // Use std::optional so that the parser result types do not
+    // need to be default constructible.
+    std::tuple<std::optional<typename Parsers::value_type>...>
+        res_tpl;
 
-    auto run_parser =
-        [&]<size_t I>(
-            std::integral_constant<size_t, I> ) -> parser<> {
-      std::get<I>( res_tpl ) =
-          co_await std::move( std::get<I>( ps_tpl ) );
+    auto run_parser = [&]<size_t I>(
+                          std::integral_constant<size_t, I>,
+                          auto&& p ) -> parser<> {
+      std::get<I>( res_tpl ).emplace( co_await std::move( p ) );
     };
     // Here is the fold expression whose order of evaluation is
     // supposed to be well-defined because we are using the comma
     // operator.
-    ( co_await run_parser(
-          std::integral_constant<size_t, Idx>{} ),
+    ( co_await run_parser( std::integral_constant<size_t, Idx>{},
+                           std::move( ps ) ),
       ... );
 
-    co_return std::apply( func, std::move( res_tpl ) );
+    std::tuple<typename Parsers::value_type&&...> ref_tpl{
+        std::move( *std::get<Idx>( res_tpl ) )... };
+    co_return std::apply( func, ref_tpl );
   }
 
   template<typename Func, typename... Parsers>
@@ -332,8 +333,8 @@ template<typename T>
 struct Emplace {
   template<typename... Parsers>
   parser<T> operator()( Parsers... ps ) const {
-    auto applier = [&]( auto&&... args ) {
-      return T( std::forward<decltype( args )>( args )... );
+    auto applier = []( auto&&... args ) {
+      return T( std::move( args )... );
     };
     return invoke( applier, std::move( ps )... );
   }

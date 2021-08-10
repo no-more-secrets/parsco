@@ -42,14 +42,12 @@ struct table;
 struct list;
 
 struct string_val {
-  string_val() = default;
   string_val( std::string_view s ) : val( s ) {}
   string_val( std::string s ) : val( std::move( s ) ) {}
   std::string val;
 };
 
 struct number {
-  number() = default;
   number( int n ) : val( n ) {}
   number( double d ) : val( d ) {}
   number( std::variant<double, int> v ) : val( v ) {}
@@ -60,7 +58,6 @@ struct number {
 };
 
 struct boolean {
-  boolean() = default;
   boolean( bool b_ ) : b( b_ ) {}
   bool b;
 };
@@ -74,7 +71,6 @@ using value =
                  std::unique_ptr<table>, std::unique_ptr<list>>;
 
 struct key_val {
-  key_val() = default;
   key_val( std::string k_, value v_ )
     : k( std::move( k_ ) ), v( std::move( v_ ) ) {}
   std::string k;
@@ -82,25 +78,18 @@ struct key_val {
 };
 
 struct table {
-  table() = default;
   table( std::vector<key_val>&& m )
     : members( std::move( m ) ) {}
 
   std::vector<key_val> members{};
-
-  std::string pretty_print( std::string_view indent = "" ) const;
 };
 
 struct list {
-  list() = default;
   list( std::vector<value>&& l ) : members( std::move( l ) ) {}
   std::vector<value> members;
-
-  std::string pretty_print( std::string_view indent = "" ) const;
 };
 
 struct doc {
-  doc() = default;
   doc( table&& tbl_ ) : tbl( std::move( tbl_ ) ) {}
   table tbl;
 };

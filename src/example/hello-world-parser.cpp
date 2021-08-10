@@ -46,15 +46,18 @@ using namespace parsco;
 // 1. The string may start or end with any number of spaces.
 // 2. It must contain the two words 'hello' and 'world' in that
 //    order.
-// 3. The two works must have their first letters either both
+// 3. The two words must have their first letters either both
 //    lowercase or both uppercase.
 // 4. Subsequent letters in each word must always be lowercase.
 // 5. The second word may have an arbitrary number of exclamation
-//    marks after it, but they must begin right after the second
-//    word.
+//    marks after it, but they must begin immediately after the
+//    second word (no spaces).
 // 6. The number of exclamation marks, if any, must be even.
 // 7. The two words can be separated by spaces or by a comma. If
 //    separated by a comma, spaces are optional after the comma.
+//    If there is a comma, it must come immediately after the
+//    first word.
+// 8. The entire input string must be consumed.
 //
 // The following is a parsco parser that parses this grammar:
 
@@ -88,7 +91,6 @@ parser<string> parse_hello_world() {
   // type in a result_t<T>, which we can then test to see if the
   // parser succeeded.
   result_t<char> comma = co_await try_{ chr( ',' ) };
-  //              ^^^ will be engaged upon success of parser.
 
   // The next bit of grammar dictates that if there is a comma
   // then there does not have to be a space between the words,
