@@ -8,7 +8,7 @@ Coroutines.
 
 PRs are welcome. 🎉🎉🎉
 
-Example 1: Parsing two consecutive same characters
+Example 1
 --------------------------------------------------
 As a first example, let's say that you want to create a parser
 that parses any two-character string where both characters are
@@ -60,8 +60,8 @@ calling them, getting the `parser<t>`s that they return, and then
 using the C++20 `co_await` keyword to run them and get the
 result.
 
-What are Coroutine and Combinators?
-----------------------------------
+What are Coroutines and Combinators?
+------------------------------------
 With the first example out of the way, let's discuss what is
 happening under the hood.
 
