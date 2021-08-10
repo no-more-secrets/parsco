@@ -582,24 +582,27 @@ via the `fail( "..." )` combinator.
 Combinator Reference
 ====================
 
-# Basic Parsers
+Below is documentation for each parser and combinator function in
+this library.
+
+## Basic Parsers
 
 ---
 
-## chr
+### chr
 The `chr` parser consumes a char that must be `c`, otherwise it
 fails.
 ```cpp
 parser<char> chr( char c );
 ```
 
-## any_chr
+### any_chr
 The `any_chr` parser consumes any char, fails only at eof.
 ```cpp
 parser<char> any_chr();
 ```
 
-## pred
+### pred
 The `pred` parser parses a single character for which the
 predicate returns true, fails otherwise.
 ```cpp
@@ -607,7 +610,7 @@ template<typename T>
 parser<char> pred( T func );
 ```
 
-## ret
+### ret
 The `ret` parser returns a parser that always succeeds and
 produces the given value.
 ```cpp
@@ -615,79 +618,79 @@ template<typename T>
 parser<T> ret( T );
 ```
 
-## space
+### space
 The `space` parser consumes one space (as in space bar)
 character. Will fail if it does not find one.
 ```cpp
 parser<> space();
 ```
 
-## crlf
+### crlf
 The `crlf` parser consumes one character that must be either a CR
 or LF, and Will fail if it does not find one.
 ```cpp
 parser<> crlf();
 ```
 
-## tab
+### tab
 The `tab` parser consumes one tab character. Will fail if it does
 not find one.
 ```cpp
 parser<> tab();
 ```
 
-## blank
+### blank
 The `blank` parser consumes one character that must be either a
 space, tab, CR, or LF, and fails otherwise.
 ```cpp
 parser<> blank();
 ```
 
-## digit
+### digit
 The `digit` parser consumes one digit [0-9] char or fails.
 ```cpp
 parser<char> digit();
 ```
 
-## lower
+### lower
 THe `lower` parser parses one lowercase letter (`[a-z]`).
 ```cpp
 parser<char> lower();
 ```
 
-## upper
+### upper
 THe `upper` parser parses one uppercase letter (`[A-Z]`).
 ```cpp
 parser<char> upper();
 ```
 
-## alpha
+### alpha
 THe `alpha` parser parses one letter (`[a-zA-Z]`).
 ```cpp
 parser<char> alpha();
 ```
 
-## alphanum
+### alphanum
 THe `alphanum` parser parses one alphanumeric character (`[a-zA-Z0-9]`).
 ```cpp
 parser<char> alphanum();
 ```
 
-## one_of
+### one_of
 The `one_of` parser consumes one char if it is one of the ones in
 sv, otherwise fails.
 ```cpp
 parser<char> one_of( std::string sv );
 ```
 
-## not_of
+### not_of
 The `not_of` parser consumes one char if it is not one of the
 ones in sv, otherwise fails.
 ```cpp
 parser<char> not_of( std::string sv );
 ```
 
-## eof
+### eof
 The `eof` parser succeeds if the input stream is finished, and
 fails otherwise. Can be used to test if all input has been
 consumed Although see the `exhaust` parser below.
@@ -695,14 +698,14 @@ consumed Although see the `exhaust` parser below.
 parser<> eof();
 ```
 
-# Try
+## Try
 
 ---
 
 The `try_*` family of combinators allow attempting a parser which
 may not succeed and backtracking if it fails.
 
-## try_
+### try_
 The `try_` combinator simply wraps another parser and signals
 that it is to be allowed to fail. Moreover, the `try_` wrapper
 will wrap the return type of the parser in a
@@ -729,7 +732,7 @@ Hence, a parser wrapped in `try_` never fails in the sense that
 parsers normally fail in this library (by aborting the entire
 parse); instead, a failure is communicated via return value.
 
-## try_ignore
+### try_ignore
 The `try_ignore` parser will try running the given parser but
 ignore the result. This is useful if you want to run a parser but
 a) you don't care if it succeeds, and b) you don't care what its
@@ -740,32 +743,32 @@ template<Parser P>
 parser<> try_ignore( P p );
 ```
 
-# Strings
+## Strings
 
 ---
 
-## str
+### str
 The `str` parser attempts to consume the exact string given at
 the current position in the input string, and fails otherwise.
 ```cpp
 parser<> str( std::string sv );
 ```
 
-## identifier
+### identifier
 The `identifier` parser attempts to parse a valid identifier,
 which must match the regex `[a-zA-Z_][a-zA-Z0-9_]*`.
 ```cpp
 parser<std::string> identifier();
 ```
 
-## blanks
+### blanks
 The `blanks` parser consumes zero or more blank spaces (including
 newlines and tabs). It will never fail.
 ```cpp
 parser<> blanks();
 ```
 
-## double_quoted_str
+### double_quoted_str
 The `double_quoted_str` parses "..." and returns the characters
 inside the quotes, which may contain newlines. Note that these
 return string views into the buffer because they are implemented
@@ -776,7 +779,7 @@ i.e., combinators for which there is special support within the
 parser<std::string_view> double_quoted_str();
 ```
 
-## single_quoted_str
+### single_quoted_str
 The `single_quoted_str` parses '...' and returns the characters
 inside the quotes, which may contain newlines. Note that these
 return string views into the buffer because they are implemented
@@ -787,7 +790,7 @@ i.e., combinators for which there is special support within the
 parser<std::string_view> single_quoted_str();
 ```
 
-## quoted_str
+### quoted_str
 The `quoted_str` parser parses a string that is either in double
 quotes or single quotes. Does not allow escaped quotes within the
 string.
@@ -795,7 +798,7 @@ string.
 parser<std::string> quoted_str();
 ```
 
-# Sequences
+## Sequences
 
 ---
 
@@ -809,7 +812,7 @@ it itself cannot be run multiple times; instead, if a combinator
 needs to run a user-specified parser multiple times, it must
 accept a function that produces those parsers when called.
 
-## many
+### many
 The `many` parser parses zero or more of the given parser.
 ```cpp
 template<typename Func, typename... Args>
@@ -827,7 +830,7 @@ parse, at which point the `many` parser finishes (always
 successfully) and backtracks over any fragment of input that
 failed parsing in the last iteration.
 
-## many_type
+### many_type
 The `many_type` parser parses zero or more of the given type for
 the given language tag using the parsco ADH extension point
 mechanism. That is, it will call `parsco::parse<Lang, T>()` to
@@ -843,7 +846,7 @@ See the JSON example in the examples folder or the above section
 on user types for how to make user-defined types parsable using
 the ADL extension point of the parsco library.
 
-## many1
+### many1
 The `many1` parser parses one or more of the given parser
 (technically it's the parser returned by invoking the given
 function on the given arguments).
@@ -854,7 +857,7 @@ auto many1( Func f, Args... args ) const -> parser<R>;
 where `R` is a `std::vector` if the element parser returns
 something other than a character, or a `std::string` otherwise.
 
-## seq
+### seq
 The `seq` parser runs multiple parsers in sequence, and only
 succeeds if all of them succeed. Returns all results in a tuple.
 ```cpp
@@ -866,7 +869,7 @@ functions-that-return-parsers) because each parser only needs to
 be run at most once. Although note that if a parser fails, the
 subsequent ones will not be run.
 
-## seq_last
+### seq_last
 The `seq_last` parser runs multiple parsers in sequence, and only
 succeeds if all of them succeed. Returns the result of the last
 parser.
@@ -878,7 +881,7 @@ where `R` is the `value_type` of the last parser in the argument
 list. As above, this combinator also takes parser objects
 directly as opposed to functions.
 
-## seq_first
+### seq_first
 The `seq_first` parser runs multiple parsers in sequence, and
 only succeeds if all of them succeed. Returns first result.
 ```cpp
@@ -889,7 +892,7 @@ where `R` is the `value_type` of the first parser in the argument
 list. As above, this combinator also takes parser objects
 directly as opposed to functions.
 
-## interleave_first
+### interleave_first
 The `interleave_first` parses "g f g f g f" and returns the f's.
 ```cpp
 template<typename F, typename G>
@@ -898,7 +901,7 @@ parser<R> interleave_first( F f, G g, bool sep_required = true );
 where `R` is the `value_type` of the parser `f`. `F` and `G` are
 nullary functions that return parser objects.
 
-## interleave_last
+### interleave_last
 The `interleave_last` parses "f g f g f g" and returns the f's.
 ```cpp
 template<typename F, typename G>
@@ -907,7 +910,7 @@ parser<R> interleave_last( F f, G g, bool sep_required = true );
 where `R` is the `value_type` of the parser `f`. `F` and `G` are
 nullary functions that return parser objects.
 
-## interleave
+### interleave
 The `interleave` parses "f g f g f" and returns the f's.
 ```cpp
 template<typename F, typename G>
@@ -916,7 +919,7 @@ parser<R> interleave( F f, G g, bool sep_required = true );
 where `R` is the `value_type` of the parser `f`. `F` and `G` are
 nullary functions that return parser objects.
 
-## cat
+### cat
 The `cat` parser runs multiple string-yielding parsers in
 sequence and concatenates the results into one string.
 ```cpp
@@ -925,7 +928,7 @@ parser<std::string> cat( Parsers... ps );
 ```
 In other words, each of the `Parsers` must be a `parser<std::string>`.
 
-## >> operator
+### >> operator
 The `>>` operator runs the parsers in sequence (all must succeed)
 and returns the result of the final one.
 ```cpp
@@ -936,7 +939,7 @@ parser<typename U::value_type> operator>>( T l, U r );
 co_await (blanks() >> identifier());
 ```
 
-## << operator
+### << operator
 The `<<` operator runs the parsers in sequence (all must succeed)
 and returns the result of the first one.
 ```cpp
@@ -951,7 +954,7 @@ the parsers are still run from left-to-right order, and the
 result of the left-most one is returned, assuming of course that
 they all succeed.
 
-# Alternatives
+## Alternatives
 
 ---
 
@@ -960,7 +963,7 @@ which needs to succeed. These parsers use the `try_` combinator
 internally, and so therefore they will do backtracking after each
 failed parser before invoking the next one.
 
-## first
+### first
 The `first` parser runs the parsers in sequence until the first
 one succeeds, then returns its result (all of the parsers must
 return the same result type). If none of them succeed then the
@@ -975,7 +978,7 @@ parser<R> first( P fst, Ps... rest );
 where `R` is `P::value_type`. When one parser succeeds,
 subsequent parsers will not be run.
 
-## | operator
+### | operator
 The `|` operator runs the parser in the order given and returns
 the result of the first one that succeeds. The parsers must all
 return the same type.
@@ -988,14 +991,14 @@ co_await (identifier() | quoted_str());
 ```
 This is equivalent to the `first` parser above.
 
-# Function Application
+## Function Application
 
 ---
 
 The combinators in this section have to do with invoking
 functions on the results of parsers.
 
-## invoke
+### invoke
 The `invoke` parser calls the given function with the results of
 the parsers as arguments (which must all succeed).
 
@@ -1030,7 +1033,7 @@ and thus as can be seen, this parser (like many others) is for
 convenience; it does not do anything that couldn't be done
 manually.
 
-## emplace
+### emplace
 The `emplace` parser calls the constructor of the given type `T`
 with the results of the parsers as arguments (which must all
 succeed).
@@ -1058,7 +1061,7 @@ of the `parse_int()` calls; we just give the combinators to
 parsers from time to time. Think of this as an analog to
 Haskell's `<$>` operator for Applicatives.
 
-## fmap
+### fmap
 The venerable `fmap` combinator runs the parser `p` and applies
 the given function to the result, if successful. The function
 typically does not return a parser; it is just a normal function.
@@ -1071,11 +1074,11 @@ where `R` is the result of invoking the function on the
 `value_type` of the parser `p`. This can be seen as a
 single-parameter version of the `invoke` combinator above.
 
-# Error Detection
+## Error Detection
 
 ---
 
-## on_error
+### on_error
 The `on_error` combinator runs the given parser and if it fails
 it will return the error message given (as opposed to any error
 message that was produced by the parser).
@@ -1106,7 +1109,7 @@ have defaulted to that produced by `chr`, which, at best, would
 be limited to something like "expected =" (that is the best that
 the `chr` combinator can do on its own).
 
-## exhaust
+### exhaust
 The `exhaust` parser runs the given parser and then checks that
 the input buffers has been exhausted (if not, it fails). Returns
 the result from the parser on success (i.e., when all input has
@@ -1116,7 +1119,7 @@ template<typename Parser>
 Parser exhaust( Parser p );
 ```
 
-## lift
+### lift
 The `lift` parser is not really a parser, it just takes a
 nullable entity (such as a `std::optional`, `std::expected`,
 `std::unique_ptr`, `parsco::result_t<T>`, etc.), and it will
@@ -1134,11 +1137,11 @@ you'd have in functional languages where a monadic value is
 lifted from an inner monad (e.g. `std::optional<T>`) to the
 transformed monad (`parsco::parser<T>`).
 
-# Miscellaneous
+## Miscellaneous
 
 ---
 
-## bracketed
+### bracketed
 The `bracketed` parser runs the given parser `p` between
 characters `l` and `r` (or parsers `l` and `r`, depending on the
 overload chosen) and, if all parsers are successful, returns only
