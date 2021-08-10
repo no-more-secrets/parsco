@@ -317,15 +317,24 @@ parsco::parser<int> parse_hello_worlds() {
 
 where the `parsco::many1` combinator parses one or more of the
 given parser. That means that it will fail unless there is at
-least one correctly-parsed "hello world." But note that it may
-not consume the entire input; in the face of a syntax error in
-the first occurrence it will fail, but syntax errors in
+least one correctly-parsed "hello world." Notice that by wrapping
+our parser in `parsco::many1`, the result is now a
+`std::vector<std::string>`, since we are parsing multiple copies
+of "hello world." In this case our parser is simply validating
+the result, so the contents of the vector are not of much use to
+use, but in most other cases they will be useful. In our case,
+we're just interested in the size.
+
+The `parse_hello_worlds`, just as with the `parse_hello_world`
+parser may not consume the entire input. In the face of a syntax
+error in the first occurrence it will fail, but syntax errors in
 subsequent occurrences will simply cause `parsco::many1` to stop
-parsing (reporting success) and to return what it has, leaving
-the input buffer with remaining unparsed characters. If we want
-to ensure that it consumes the entire input buffer, we can use
-either the `eof` combinator or the `parsco::exhaust` combinator;
-an example of the latter is:
+parsing (reporting success) and to return whatever it has
+successfully parsed, potentially leaving unparsed characters in
+the input buffer. If we want to ensure that the entire input
+buffer is consumed, we can use either the `parsco::eof`
+combinator or the `parsco::exhaust` combinator; an example of the
+latter is:
 
 ```cpp
 parsco::parser<int> parse_hello_worlds() {
@@ -350,13 +359,11 @@ using the combinators in this library. Note that the JSON
 parser makes use of the ADL extension point mechanism of the
 library, which will be described in the next section.
 
-### Tacit / Point-Free Style
-
 Something to note in the implementation of the JSON parser is
 that many of the functions are actually not coroutines because
-they do not use the `co_await` or `co_return` keywords
-(`co_yield` is not used by this library). For example, the parser
-for a boolean:
+they do not use the `co_await` or `co_return` keywords (and
+`co_yield` is not used by this library). For example, the parser
+for a JSON boolean:
 
 ```cpp
 parser<boolean> parser_for( lang<Json>, tag<boolean> ) {
@@ -367,18 +374,22 @@ parser<boolean> parser_for( lang<Json>, tag<boolean> ) {
 
 This is possible because it is frequently the case that a parsing
 operation can be described entirely in terms of existing
-combinators without applying any custom logic to the intermediate
+combinators without applying any logic to the intermediate
 results. In those cases your parsers may end up looking like the
-above. Note: in order to support this style of writing parsers,
-the combinators take their parameters by value in order to avoid
-dangling references; see the section "Laziness and Parameter
-Lifetime" for more information.
+above, namely a single expression describing the parser in a
+declarative way. Note: in order to support this style of writing
+parsers, the combinators take their parameters by value in order
+to avoid dangling references; see the section "Laziness and
+Parameter Lifetime" for more information.
 
-Loosely speaking, we can refer to this as a kind of [point-free](https://en.wikipedia.org/wiki/Tacit_programming) style.
-Writing a function in this style when possible is likely a good
-idea because it will prevent the function from being compiled as
-a coroutine, which means that there will be less overhead in
-invoking it.
+Writing a function in this declarative/expression-based style
+when possible is likely a good idea because it will prevent the
+function from being compiled as a coroutine, which means that
+there will be less overhead in invoking it (invoking a coroutine
+typically involves at least one heap allocation to create
+the coroutine state; theoretically, the compiler can elide the
+heap allocation, but that does not seem to currently happen with
+this library, see the section on runtime performance below).
 
 User-Defined Types
 ------------------
@@ -439,6 +450,9 @@ and your parser will be discovered through ADL. You can use this
 to easily build generic parsers for e.g. `std::vector<T>` which
 then invoke `parsco::parse<SomeLang, T>()` to parse any type.
 
+Using this ADL extension point is entirely optional; you may not
+need it or opt not to use it, and that is fine.
+
 Failure and Backtracking
 ------------------------
 When a `co_await`ed parser fails, it aborts the entire parsing
@@ -465,19 +479,22 @@ Generally, the combinators in the library that allow for failing
 parsers will all use the `try_` combinator internally and thus
 will automatically backtrack, so that the internal position in
 the buffer will never extend beyond what has been successfully
-parsed and returned by your parsers.
+parsed and returned by your parsers. That said, the framework
+does keep track of the farthest position that was _attempted_ to
+be parsed, in order to deliver accurate error messages to users
+in response to syntax errors.
 
 Note on Asynchrony
 ------------------
 Although coroutines have important applications in concurrent or
 asynchronous programming, they are not being used in that
-capacity here. In this library they are used simply to act as
-glue for combinators that work in a synchronous way and that
-expect to have the entire input buffer in memory. In fact,
-`parsco::parser<T>` coroutines that suspend will only suspend
+capacity here. In this library they are used simply as a "glue"
+for parsers and combinators, all of which operate in a synchronous
+way and that expect to have the entire input buffer in memory.
+In fact, `parsco::parser<T>` coroutines will only suspend
 when they fail (apart from their initial suspend point, since
 they are lazy; see below), and will then never resume, similar to
-a `std::optional<T>` coroutine.
+how a `std::optional<T>` coroutine might work.
 
 This can be contrasted with other uses of coroutines where e.g.
 the coroutine will suspend while waiting for more input to arrive
@@ -492,25 +509,28 @@ Coroutine Ownership
 The coroutines in this library follow the practice of
 [Structured Concurrency](https://www.youtube.com/watch?v=1Wy5sq3s2rg) in that:
 
-1. The are lazy.
-2. The returned parser object owns the coroutine in RAII fashion
-   and will destroy it when the parser object goes out of scope.
+1. The are lazy: they suspend at their initial suspend point.
+2. A parser object return by a coroutine owns the coroutine in
+   RAII fashion and will destroy the coroutine it when the parser
+   object goes out of scope.
 
 This guarantees (in most use cases) that memory and lifetimes
-will be managed properly automatically without any special
-consideration from the user.
+will be managed properly and automatically without any special
+consideration from the library user.
 
 It is also hoped that this ownership model will aid the optimizer
 in understanding that it can elide all of the coroutine state
 heap allocations (which I believe should be theoretically
-possible in all of the common use cases).
+possible in all of the common use cases). This unfortunately does
+not seem to happen currently; see the section on runtime
+performance for more information.
 
 Laziness and Parameter Lifetime
 -------------------------------
 Parsco parser coroutines are lazy. That means that when you
 invoke a `parsco::parser<T>` coroutine, it immediately suspends.
-In fact it _must_, because it does not yet have access to the
-input data at that point. The parser is only resumed and run when
+In fact it _must_ suspend, because it does not yet have access to
+the input data initially. The parser is only resumed and run when
 it is `co_await`ed, at which point it is given access to the
 input data by its caller.
 
@@ -529,11 +549,17 @@ developer can thus freely create arbitrary combinator creations
 (`co_await`ing the results immediately or at a later time)
 without having to reason about lifetime or dangling references.
 
-Theoretically, it seems that any such issues could be
+When designing new combinators, you may want to consider doing
+the same for consistency. In practice, this should not add much
+overhead, because typical parameters to coroutines include a)
+stateless lambdas, b) primitive types such as ints, and
+`parsco::parser<T>` objects which are always moved.
+
+Theoretically, it seems that any such lifetime issues could be
 systematically avoided by constructing parsers and wrapping
 combinators in one expression and then `co_await`ing the result
 immediately before the expression goes out of scope, as opposed
-to putting the result into a `parser<T>` lvalue and then
+to putting the result into a `parser<T>` object and then
 `co_await`ing on it later. However, to save the developer having
 to think about that and to give them flexibility, the combinators
 just take their arguments by value.
@@ -544,48 +570,94 @@ do come out clean, for what that is worth.
 Building and Running
 ====================
 Since C++20 coroutines are a relatively new feature, compiler
-support is currently not perfect.
+support is currently not complete or perfect.
 
 As of August, 2021, this library has only been tested
-successfully on Clang trunk and (partially successfully) with GCC
-11.1. The library runs well with Clang, but unfortunately GCC's
-coroutine support is still generally too buggy to run this
-reliably, though it does seem to be able to run the "hello world"
-parser example.
+successfully with Clang trunk and (partially successfully) with
+GCC 11.1. The library runs well with Clang, but unfortunately
+GCC's coroutine support still seems too lacking to run this
+library without crashing, though it does seem to be able to run
+the "hello world" parser example. Not yet tested with MSVC.
 
-Not yet tested with MSVC.
+### Building
+To build and run, you will need a recent build of Clang trunk
+(which at the time of writing should be the as-yet-unreleased
+Clang 12) along with a standard library that supports enough
+of C++20 and Coroutines.  For the standard library I use libstdc++
+from gcc 11.1.0, though more recent ones should work as well.
+
+The build is done with CMake, and here is a typical invocation
+that I use on Ubuntu Linux 20.04 on an `x86_64` system that will
+use a build of LLVM located at `/path/to/llvm` and a libstdc++
+11.1.0 located in `/path/to/gcc`:
+
+### Clone
+```bash
+$ git clone https://github.com/dpacbach/parsco
+$ cd parsco
+```
+
+### Configure
+```bash
+# From the parsco directory:
+$ mkdir build
+$ cd build
+$ cmake ../.. \
+       -DCMAKE_BUILD_TYPE=Release \
+       -DCMAKE_CXX_COMPILER=/path/to/llvm/bin/clang++ \
+       -DCMAKE_CXX_FLAGS_INIT=-nostdinc++ -I/path/to/gcc/include/c++/11.1.0 -I/path/to/gcc/include/c++/11.1.0/x86_64-pc-linux-gnu \
+       -DCMAKE_EXE_LINKER_FLAGS_INIT=-Wl,-rpath,/path/to/gcc/lib64 -L/path/to/gcc/lib64 -fuse-ld=lld
+```
+
+### Build
+```bash
+$ make -j8
+```
+
+### Run examples
+```bash
+# From the build directory:
+$ ./src/example/hello-world-parser
+$ ./src/example/json-parser
+```
+
+Though you may well have to tweak the CMake command to work
+with your setup.
 
 Runtime Performance
 -------------------
 When using Clang with optimizations enabled (`-O3`), I have
 observed that a complex parser made of many combinators using
-this library can be optimized by the compiler to a point where it
-runs around 15x slower than a parser hand-coded in C, in the
-benchmarks that I ran.
+this library can be optimized down by the compiler to a point
+where it runs around 15x slower than a parser hand-coded in C, in
+the benchmarks that I ran.
 
-Given how incredibly fast a hand-coded C parser can be, it is
-perhaps not so bad, especially given that there are likely many
-opportunities for further optimization in the library. Either
-way, given the high level of abstraction that can be attained
-using this library, it could be a valid tradeoff to make in some
-use cases.
+Given how incredibly fast a hand-coded C parser can be, and
+given the high level of abstraction that can be attained using
+this library, it is perhaps not so bad.  That said, performance
+is very important in the C++ ecosystem and thus a goal of this
+library is to eventually attain C-level performance without
+sacrificing any of the abstraction.
+
+Theoretically, it should be the case when using this library that
+all coroutine frame heap allocations can/should be elided by the
+compiler. But, unfortunately, that does not seem to happen in the
+instances where I have looked at the generated code. I am not
+sure why this is at the moment, but I am hopeful that this
+situation will improve in the future due to either a) an increase
+in my own understanding of coroutine library optimization
+techniques, b) help from contributors who have expertise in this
+area, or c) an increase in compiler's ability to optimize
+coroutines.
+
+If we could get the compiler to elide the coroutine frames
+and allocations, subsequent inlining I believe could allow
+this library to reach C-level performance levels.  Help with
+that would be much appreciated.
 
 In non-optimized builds, the performance (relative to said C
-parser) will be much worse unfortunately. I believe this is
-likely due to coroutine frame heap allocations not being elided
-in non-optimized builds.
-
-On the bright side, I think it is likely that compilers will get
-better in the future with Coroutine optimization and so this will
-hopefully be less of a problem.
-
-As mentioned, it is likely that this library can be tweaked
-further to make it more ammenable to Clang's optimizations of
-Coroutines. PRs are welcome for that if anyone has any expertise
-there.
-
-I'd really like to improve the performance in non-optimized
-builds, but I'm not sure how feasible that is at this point.
+parser) is even worse unfortunately, and this is another problem
+that would be nice to improve upon (any help is appreciated).
 
 Error Messages
 --------------
@@ -596,13 +668,15 @@ human-readable error message describing what the parser was
 expecting, unless the failure was initiated by use of the `fail`
 combinator as demonstrated in the Hello World example above.
 
-Ideas are welcome for how to enhance the library so that the a
+It may be possible to enhance the library so that a
 given parser can be inspected to automatically determine what
-characters it was expecting (may be challenging to do this
-without the help of the programmer giving hints). That said, even
-if that were possible, it seems that the most user-intelligible
-error message would still be provided mainly by the programmer
-via the `fail( "..." )` combinator.
+characters it was expecting in order to automatically generate
+more useful error messages.  Some parser frameworks in some libraries
+are able to do this to some extent, but it is difficult.
+
+That said, even if that were possible, it seems that the most
+user-intelligible error message are still going to be provided
+mainly by the programmer via the `fail( "..." )` combinator.
 
 Combinator Reference
 ====================
