@@ -91,7 +91,7 @@ coroutine is a function that
 1. Returns a `parsco::parser<T>` type.
 2. Uses one or both of the keywords `co_await` and `co_return` in
    its body (this library does not make use of `co_yield`).
-3. Has the ability (unlike a conventional function) to suspend an
+3. Has the ability (unlike a conventional function) to suspend and
    resume execution.
 
 When a coroutine is first called, the runtime will setup a
@@ -120,7 +120,7 @@ object.
 Since the coroutines thread the input buffer pointers and state
 through the coroutine call stack automatically, there is no
 global state in the library, hence we have nice properties of
-being re-entrant and thread safe (in some sense).
+being re-entrant and thread safe (though only in that sense).
 
 Example 2: The Hello World Parser
 ---------------------------------
@@ -160,7 +160,9 @@ Examples:
 "hello, world!! x",    // should fail (#8 violated)
 ```
 
-The following is a parsco parser that parses this grammar:
+That is clearly a contrived grammar, but it will allow us to
+demonstrate some of the basic facilities in this library.
+The following is a Parsco parser that parses this grammar:
 
 ```cpp
 parsco::parser<string> parse_hello_world() {
@@ -275,14 +277,14 @@ test "hello, world!! x"    failed to parse:
 ```
 
 Note that in those cases where we provided an error message
-ourselves via the `fail` combinator, it gives it to the user for
-a better experience.
+ourselves via the `fail` combinator, it gives it to the user
+and this can result in a better experience.
 
 Before closing this example, let's extend it a bit more. Let's
 say that we want to allow more than one occurrence of the above
 "hello world"s in the input buffer (i.e., one or more) and then
 have the parser return the number that were found. In order to do
-that, we'd first have to remove the `eof` combinator from the
+that, we first have to remove the `eof` combinator from the
 hello world example because we are no longer requiring that the
 input be entirely consumed after a single occurrence. Then, we do
 the following:
@@ -301,11 +303,11 @@ least one correctly-parsed "hello world". But note that it may
 not consume the entire input; in the face of a syntax error in
 the first occurrence it will fail, but syntax errors in
 subsequent occurrences will simply cause `parsco::many1` to stop
-parsing and return what it has, leaving the input buffer with
-remaining characters. If we want to ensure that it consumes the
-entire input buffer, we can use either the `eof` approach used in
-the original hello world example, or we can use the
-`parsco::exhaust` combinator:
+parsing (successfully) and return what it has, leaving the input
+buffer with remaining characters. If we want to ensure that it
+consumes the entire input buffer, we can use either the `eof`
+approach used in the original hello world example, or we can
+use the `parsco::exhaust` combinator:
 
 ```cpp
 parsco::parser<int> parse_hello_worlds() {
@@ -319,9 +321,11 @@ Example 3: JSON Parser
 ----------------------
 To see a more realistic example, see the `json-parser.cpp` file
 in the examples folder which contains a JSON parser constructed
-using the combinators in this library. In addition, the JSON
-parser leverages the ADL extension point mechanism of the
-library, as described in the next section.
+using the combinators in this library. Note that the JSON
+parser makes use of the ADL extension point mechanism of the
+library, which will be described in the next section.
+
+### Tacit / Point-Free Style
 
 Something to note in the implementation of the JSON parser is
 that many of the functions are actually not coroutines because
@@ -330,22 +334,26 @@ they do not use the `co_await` or `co_return` keywords
 for a boolean:
 
 ```cpp
-using namespace parsco;
-
 parser<boolean> parser_for( lang<Json>, tag<boolean> ) {
-  return ( str( "true"  ) >> ret( boolean{ true  } ) ) |
-         ( str( "false" ) >> ret( boolean{ false } ) );
+  return (str( "true"  ) >> ret( boolean{ true  })) |
+         (str( "false" ) >> ret( boolean{ false }));
 }
 ```
 
 This is possible because it is frequently the case that a parsing
 operation can be described entirely in terms of existing
 combinators without applying any custom logic to the intermediate
-results of the combinators. In those cases your parsers may end
-up looking like the above. Note: in order to support this style
-of writing parsers, the combinators take their parameters by
-value in order to avoid dangling references; see the section
-"Laziness and Parameter Lifetime" for more information.
+results. In those cases your parsers may end up looking like the
+above. Note: in order to support this style of writing parsers,
+the combinators take their parameters by value in order to avoid
+dangling references; see the section "Laziness and Parameter
+Lifetime" for more information.
+
+Loosely speaking, we can refer to this as a kind of [point-free](https://en.wikipedia.org/wiki/Tacit_programming) style.
+Writing a function in this style when possible is likely a good
+idea because it will prevent the function from being compiled as
+a coroutine, which means that there will be less overhead in
+invoking it.
 
 User-Defined Types
 ------------------
@@ -574,8 +582,9 @@ via the `fail( "..." )` combinator.
 Combinator Reference
 ====================
 
-Basic/Primitive Parsers
------------------------
+# Basic Parsers
+
+---
 
 ## chr
 The `chr` parser consumes a char that must be `c`, otherwise it
@@ -640,12 +649,27 @@ The `digit` parser consumes one digit [0-9] char or fails.
 parser<char> digit();
 ```
 
-## lower/upper/alpha/alphanum
-The following do what you'd think they do:
+## lower
+THe `lower` parser parses one lowercase letter (`[a-z]`).
 ```cpp
 parser<char> lower();
+```
+
+## upper
+THe `upper` parser parses one uppercase letter (`[A-Z]`).
+```cpp
 parser<char> upper();
+```
+
+## alpha
+THe `alpha` parser parses one letter (`[a-zA-Z]`).
+```cpp
 parser<char> alpha();
+```
+
+## alphanum
+THe `alphanum` parser parses one alphanumeric character (`[a-zA-Z0-9]`).
+```cpp
 parser<char> alphanum();
 ```
 
@@ -671,7 +695,8 @@ consumed Although see the `exhaust` parser below.
 parser<> eof();
 ```
 
-Try
+# Try
+
 ---
 
 The `try_*` family of combinators allow attempting a parser which
@@ -715,8 +740,9 @@ template<Parser P>
 parser<> try_ignore( P p );
 ```
 
-Strings
--------
+# Strings
+
+---
 
 ## str
 The `str` parser attempts to consume the exact string given at
@@ -739,15 +765,25 @@ newlines and tabs). It will never fail.
 parser<> blanks();
 ```
 
-## double_quoted_str / single_quoted_str
-The `double_quoted_str` and `single_quoted_str` respectively
-parse "..." or '...' and returns the stuff inside, which may
-contain newlines. Note that these return string views into the
-buffer because they are implemented using "magic" primitives,
+## double_quoted_str
+The `double_quoted_str` parses "..." and returns the characters
+inside the quotes, which may contain newlines. Note that these
+return string views into the buffer because they are implemented
+using the parser primitives defined in the file `magic.hpp`,
 i.e., combinators for which there is special support within the
 `parsco::promise_type` object, just for efficiency.
 ```cpp
 parser<std::string_view> double_quoted_str();
+```
+
+## single_quoted_str
+The `single_quoted_str` parses '...' and returns the characters
+inside the quotes, which may contain newlines. Note that these
+return string views into the buffer because they are implemented
+using the parser primitives defined in the file `magic.hpp`,
+i.e., combinators for which there is special support within the
+`parsco::promise_type` object, just for efficiency.
+```cpp
 parser<std::string_view> single_quoted_str();
 ```
 
@@ -759,8 +795,10 @@ string.
 parser<std::string> quoted_str();
 ```
 
-Sequences
----------
+# Sequences
+
+---
+
 Many of the combinators in this section are actually higher-order
 functions. They take functions that, when called (which is
 typically done in some repeated fashion), produce parser objects
@@ -913,8 +951,9 @@ the parsers are still run from left-to-right order, and the
 result of the left-most one is returned, assuming of course that
 they all succeed.
 
-Alternatives
-------------
+# Alternatives
+
+---
 
 This means that we give a set of possible parsers, only one of
 which needs to succeed. These parsers use the `try_` combinator
@@ -949,8 +988,9 @@ co_await (identifier() | quoted_str());
 ```
 This is equivalent to the `first` parser above.
 
-Function Application
---------------------
+# Function Application
+
+---
 
 The combinators in this section have to do with invoking
 functions on the results of parsers.
@@ -1031,8 +1071,9 @@ where `R` is the result of invoking the function on the
 `value_type` of the parser `p`. This can be seen as a
 single-parameter version of the `invoke` combinator above.
 
-Error Detection
----------------
+# Error Detection
+
+---
 
 ## on_error
 The `on_error` combinator runs the given parser and if it fails
@@ -1093,8 +1134,9 @@ you'd have in functional languages where a monadic value is
 lifted from an inner monad (e.g. `std::optional<T>`) to the
 transformed monad (`parsco::parser<T>`).
 
-Miscellaneous
--------------
+# Miscellaneous
+
+---
 
 ## bracketed
 The `bracketed` parser runs the given parser `p` between
