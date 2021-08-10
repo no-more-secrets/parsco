@@ -59,10 +59,15 @@ bool is_alphanum( char c ) {
 
 } // namespace
 
-parser<char> chr() { co_return co_await builtin_next_char{}; }
+parser<char> any_chr() {
+  co_return co_await builtin_next_char{};
+}
 
 parser<char> chr( char c ) {
-  co_return co_await pred( [c]( char c_ ) { return c == c_; } );
+  char parsed_c = co_await builtin_next_char{};
+  if( parsed_c != c )
+    co_await fail( string( "expected '" ) + c + "'" );
+  co_return c;
 }
 
 parser<char> lower() { return pred( is_lower ); }
@@ -103,7 +108,7 @@ parser<char> not_of( string sv ) {
 }
 
 parser<> eof() {
-  result_t<char> c = co_await try_{ chr() };
+  result_t<char> c = co_await try_{ any_chr() };
   if( c.has_value() )
     // If we're here that means that there is more input in the
     // buffer, and thus that the `eof` parser (which requires

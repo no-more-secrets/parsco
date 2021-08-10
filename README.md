@@ -1,34 +1,32 @@
-PARSCO
-------
-C++20 Coroutine Synchronous Parser Combinator Library.
+# PARSCO
+
+C++20 **Coroutine** Synchronous **Parser** Combinator Library.
 
 This library contains a monadic parser type and associated
-combinators that can be composed to create parsers using
-C++20 Coroutines.
+combinators that can be composed to create parsers using C++20
+Coroutines.
 
 PRs are welcome. 🎉🎉🎉
 
-Example 1: What are Coroutine Combinators
------------------------------------------
-A parser combinator is a function (or higher-order function)
-that acts as a simple building block for creating complex parsers.
-This library provides a parser object and combiantors that
-can be combined using C++20 Coroutines.
+Example 1: Parsing two consecutive same characters
+--------------------------------------------------
+As a first example, let's say that you want to create a parser
+that parses any two-character string where both characters are
+the same (e.g. "==", "aa", etc.) and then returns that character
+on success. You could do that like this:
 
-For example, let's say that you want to use
-the `chr` parser, which parses a single specific character,
-to build a parser that parses any two-character
-string where both characters are the same (e.g. "==", "aa") and
-then returns that character on success. You would do that like
-this:
 ```cpp
 parsco::parser<char> parse_two_same() {
   char c = co_await parsco::any_chr();
   co_await parsco::chr( c );
   co_return c;
 }
+```
 
-// Another way to implement it would be:
+Another way to write it, which will provide a better error
+message to the user when parsing fails, would be:
+
+```cpp
 parsco::parser<char> parse_two_same() {
   char c1 = co_await parsco::any_chr();
   char c2 = co_await parsco::any_chr();
@@ -38,50 +36,109 @@ parsco::parser<char> parse_two_same() {
   co_return c1;
 }
 ```
-The combinators used above (`chr` and `any_chr`) are functions
-that return `parser<T>`s.  As can be seen, they have been
-combined to yield higher level functions (`parse_two_same`)
-that also return `parser<T>`, and thus can be used in more
-complex parsers in a similar way, namely by calling them,
-getting the `parser<t>`s that they return, and then using
-the C++20 `co_await` keyword to run them and get the result.
 
-When you `co_await` on a parser it does a few things for you:
+Running this parser can result in three possible outcomes:
 
-1. It automatically runs the parser and handle advancing
-the position in the input buffer in response.
-2. It will automatically detect and handle EOF; this means that
-it will stop parsing, and will do so either successfully or
-with failure depending on the nature of what is currently
-being parsed.
-3. If the parser fails, it will suspend the coroutine and
-report failure to the parent (caller) coroutine, which will
-typically cascade and immediately cause the entire call stack
-to halt, providing an error message and input buffer location
-to the caller.  Although see the `try_` combinator further
-below for examples of how to backtrack in the case of failure.
+1. The parser finds two characters and they are both the same,
+   e.g. "xx". In that case, the returned parser object will yield
+   'x'.
+2. The parser finds two characters and they are not the same. In
+   that case, the parser will fail with an error message. The
+   particular error message depends on which of the above two
+   implementations is used.
+3. The parser encounters the end of the input stream (EOF) before
+   it can parse both characters. In this case, the parser
+   function will fail and return.
 
-The coroutines thread the input buffer pointers and state through
-the coroutine call stack automatically and so there is no global
-state in the library, hence we have nice properties of being
-re-entrant and thread safe (in some sense).
+The parsers used above (`chr` and `any_chr`) are functions that
+return `parser<T>`s (in this case, `T` is `char`). As can be
+seen, they have been combined to yield higher-level functions
+(`parse_two_same`) which is itself a parser in that it returns a
+`parser<T>`. This `parse_two_same` parser can thus can be used to
+build even more complex parsers in a similar way, namely by
+calling them, getting the `parser<t>`s that they return, and then
+using the C++20 `co_await` keyword to run them and get the
+result.
+
+What are Coroutine and Combinators?
+----------------------------------
+With the first example out of the way, let's discuss what is
+happening under the hood.
+
+First, a "parser" in the context of this library is an object of
+type `parsco::parser<T>`. This object is created by calling a
+function that returns such an object, and does nothing on its
+own. When it is `co_await`ed then it will be given access to the
+input stream and it will begin parsing. If it succeeds, then it
+will result in an object of type `T`.
+
+A parser combinator is a function (or higher-order function) that
+acts as a simple building block for creating more complex
+parsers. They typically take as parameters either parser objects
+or functions that return parser objects, and then construct a new
+parser and return it as a new `parsco::parser<T>` object.
+
+In this library, parsers and combinators are glued together using
+C++20 Coroutines. An explanation of how C++20 coroutines work in
+general is beyond the scope of this README; however, you do not
+need to fully understand them to use this library. That said, if
+you do want an in-depth look into how C++ coroutines work, see
+[this blog](https://lewissbaker.github.io/).
+
+For the purposes of using this library, just know that a
+coroutine is a function that
+
+1. Returns a `parsco::parser<T>` type.
+2. Uses one or both of the keywords `co_await` and `co_return` in
+   its body (this library does not make use of `co_yield`).
+3. Has the ability (unlike a conventional function) to suspend an
+   resume execution.
+
+When a coroutine is first called, the runtime will setup a
+coroutine frame consisting of a "promise" object. Then, while
+executing the coroutine, each time the `co_await` or `co_return`
+keywords are used, the compiler will query the promise object via
+some extension points to ask it what to do in response. This
+promise object (and the hidden calls to query it) are leveraged
+by this library to allow the coroutine to automatically handle
+the the following things that need to be done while parsing:
+
+1. Keep track of the input buffer and the current position in the
+   input buffer.
+2. Detect a premature EOF (end of input stream) and terminate the
+   parse all of the way up the call stack.
+3. Detect and handle parsing errors (i.e., syntax errors in the
+   input), which can result in either cancelling the entire parse
+   (cascading up the call stack) or in backtracking to reattempt
+   with another parser. In the former case, it will provide an
+   error message and input buffer location to the user.
+4. Returning of the result of parsing.
+
+All of this happens automatically when you `co_await` on a parser
+object.
+
+Since the coroutines thread the input buffer pointers and state
+through the coroutine call stack automatically, there is no
+global state in the library, hence we have nice properties of
+being re-entrant and thread safe (in some sense).
 
 Example 2: The Hello World Parser
 ---------------------------------
-
-As a second example, let us define a simple grammar that we will refer
-to as the "hello world" grammar.  It is defined as follows:
+As a second example, let us define a simple grammar that we will
+refer to as the "hello world" grammar. It is defined as follows:
 
 1. The string may start or end with any number of spaces.
-2. It must contain the two words 'hello' and 'world' in that order.
-3. The two words must have their first letters either both lowercase
-or both uppercase.
+2. It must contain the two words 'hello' and 'world' in that
+   order.
+3. The two words must have their first letters either both
+   lowercase or both uppercase.
 4. Subsequent letters in each word must always be lowercase.
-5. The second word may have an arbitrary number of exclamation marks
-after it, but they must begin right after the second word.
+5. The second word may have an arbitrary number of exclamation
+   marks after it, but they must begin right after the second
+   word.
 6. The number of exclamation marks, if any, must be even.
 7. The two words can be separated by spaces or by a comma. If
-separated by a comma, spaces are optional after the comma.
+   separated by a comma, spaces are optional after the comma.
 
 Examples:
 ```cpp
@@ -215,26 +272,87 @@ test "hello, world!! x"    failed to parse:
 ```
 
 Note that in those cases where we provided an error message
-ourselves via the `fail` combinator, it gives it to the user
-for a better experience.
+ourselves via the `fail` combinator, it gives it to the user for
+a better experience.
+
+Before closing this example, let's extend it a bit more. Let's
+say that we want to allow more than one occurrence of the above
+"hello world"s in the input buffer (i.e., one or more) and then
+have the parser return the number that were found. In order to do
+that, we'd first have to remove the `eof` combinator from the
+hello world example because we are no longer requiring that the
+input be entirely consumed after a single occurrence. Then, we do
+the following:
+
+```cpp
+parsco::parser<int> parse_hello_worlds() {
+  std::vector<std::string> hello_worlds =
+      co_await parsco::many1( parse_hello_world );
+  co_return hello_worlds.size();
+}
+```
+
+where the `parsco::many1` combinator parses one or more of the
+given parser. That means that it will fail unless there is at
+least one correctly-parsed "hello world". But note that it may
+not consume the entire input; in the face of a syntax error in
+the first occurrence it will fail, but syntax errors in
+subsequent occurrences will simply cause `parsco::many1` to stop
+parsing and return what it has, leaving the input buffer with
+remaining characters. If we want to ensure that it consumes the
+entire input buffer, we can use either the `eof` approach used in
+the original hello world example, or we can use the
+`parsco::exhaust` combinator:
+
+```cpp
+parsco::parser<int> parse_hello_worlds() {
+  std::vector<std::string> hello_worlds =
+    co_await parsco::exhaust( parsco::many1( parse_hello_world ) );
+  co_return hello_worlds.size();
+}
+```
 
 Example 3: JSON Parser
 ----------------------
 To see a more realistic example, see the `json-parser.cpp` file
 in the examples folder which contains a JSON parser constructed
-using the combinators in this library.  In addition, the JSON parser
-leverages the ADL extension point mechanism of the library, as
-described in the next section.
+using the combinators in this library. In addition, the JSON
+parser leverages the ADL extension point mechanism of the
+library, as described in the next section.
+
+Something to note in the implementation of the JSON parser is
+that many of the functions are actually not coroutines because
+they do not use the `co_await` or `co_return` keywords
+(`co_yield` is not used by this library). For example, the parser
+for a boolean:
+
+```cpp
+using namespace parsco;
+
+parser<boolean> parser_for( lang<Json>, tag<boolean> ) {
+  return ( str( "true"  ) >> ret( boolean{ true  } ) ) |
+         ( str( "false" ) >> ret( boolean{ false } ) );
+}
+```
+
+This is possible because it is frequently the case that a parsing
+operation can be described entirely in terms of existing
+combinators without applying any custom logic to the intermediate
+results of the combinators. In those cases your parsers may end
+up looking like the above. Note: in order to support this style
+of writing parsers, the combinators take their parameters by
+value in order to avoid dangling references; see the section
+"Laziness and Parameter Lifetime" for more information.
 
 User-Defined Types
 ------------------
 The Parsco library provides an ADL-based extension point so that
 you can define parsers for user-defined types in a consistent
-manner and that will be discoverable by the library.  For example,
+manner and that will be discoverable by the library. For example,
 the library provides a parser for `std::variant` which will
-invoke the extension point to attempt to parse the types that
-it contains, which may be user-defined types.  To define a parser
-for some user type `MyType` which lives in your namespace `your_ns`,
+invoke the extension point to attempt to parse the types that it
+contains, which may be user-defined types. To define a parser for
+some user type `MyType` which lives in your namespace `your_ns`,
 do the following:
 
 ```cpp
@@ -273,15 +391,15 @@ namespace your_ns {
 }
 ```
 
-Now, having defined that, any other code, including code
-internal to the Parsco library, can parse your type by
-running the following:
+Now, having defined that, any other code, including code internal
+to the Parsco library, can parse your type by running the
+following:
 
 ```cpp
 MyType mt = co_await parsco::parse<MyLang, MyType>();
 ```
 
-and your parser will be discovered through ADL.  You can use this
+and your parser will be discovered through ADL. You can use this
 to easily build generic parsers for e.g. `std::vector<T>` which
 then invoke `parsco::parse<SomeLang, T>()` to parse any type.
 
@@ -293,7 +411,7 @@ will be suspended (and likely destroyed shortly thereafter when
 the original `parser<T>` object goes out of scope).
 
 Sometimes, however, we want to attempt a parser and allow for it
-to fail.  For this, there is a special combinator called `try_`:
+to fail. For this, there is a special combinator called `try_`:
 
 ```cpp
 using namespace parsco;
@@ -302,9 +420,9 @@ result_t<int> maybe_int = co_await try_{ parse_int() };
 ```
 
 This will propagate parse errors via a return value that can be
-checked in the parser. Upon a failure, the `maybe_int` will con-
-tain the error and the parser will internally have backtracked in
-the input buffer so that any subsequent parsers can retry the
+checked in the parser. Upon a failure, the `maybe_int` will
+contain the error and the parser will internally have backtracked
+in the input buffer so that any subsequent parsers can retry the
 same section of input.
 
 Generally, the combinators in the library that allow for failing
@@ -316,70 +434,73 @@ parsed and returned by your parsers.
 Note on Asynchrony
 ------------------
 Although coroutines have important applications in concurrent or
-asynchronous programming, they are not being used in that capacity
-here.  In this library they are used simply to act as glue for
-combinators that work in a synchronous way and that expect to have
-the entire input buffer in memory.  In fact, `parsco::parser<T>`
-coroutines that suspend will only suspend when they fail (apart
-from their initial suspend point, since they are lazy; see below),
-and will then never resume, similar to a `std::optional<T>`
-coroutine.
+asynchronous programming, they are not being used in that
+capacity here. In this library they are used simply to act as
+glue for combinators that work in a synchronous way and that
+expect to have the entire input buffer in memory. In fact,
+`parsco::parser<T>` coroutines that suspend will only suspend
+when they fail (apart from their initial suspend point, since
+they are lazy; see below), and will then never resume, similar to
+a `std::optional<T>` coroutine.
 
 This can be contrasted with other uses of coroutines where e.g.
 the coroutine will suspend while waiting for more input to arrive
-asynchronously, and will then be scheduled to resume when it does.
+asynchronously, and will then be scheduled to resume when it
+does.
 
-The `parsco::parser<T>` type can be thought of as the C++ equivalent
-to Haskell's `Parsec` monad, for example.
+The `parsco::parser<T>` type can be thought of as the C++
+equivalent to Haskell's `Parsec` monad, for example.
 
 Coroutine Ownership
 -------------------
-The coroutines in this library follow the practice of "Structured
-Concurrency" in that:
+The coroutines in this library follow the practice of
+[Structured Concurrency](https://www.youtube.com/watch?v=1Wy5sq3s2rg) in that:
 
 1. The are lazy.
 2. The returned parser object owns the coroutine in RAII fashion
-and will destroy it when the parser object goes out of scope.
+   and will destroy it when the parser object goes out of scope.
 
-This guarantees (in most use cases) that memory and lifetimes will
-be managed properly automatically without any special consideration
-from the user.
+This guarantees (in most use cases) that memory and lifetimes
+will be managed properly automatically without any special
+consideration from the user.
 
 It is also hoped that this ownership model will aid the optimizer
 in understanding that it can elide all of the coroutine state
-heap allocations (which I believe should be theoretically possible
-in all of the common use cases).
+heap allocations (which I believe should be theoretically
+possible in all of the common use cases).
 
 Laziness and Parameter Lifetime
 -------------------------------
-Parsco parser coroutines are lazy.  That means that when you
+Parsco parser coroutines are lazy. That means that when you
 invoke a `parsco::parser<T>` coroutine, it immediately suspends.
-In fact it _must_, because it does not yet have access to the input
-data at that point.  The parser is only resumed and run when it
-is `co_await`ed, at which point it is given access to the input
-data by its caller.
+In fact it _must_, because it does not yet have access to the
+input data at that point. The parser is only resumed and run when
+it is `co_await`ed, at which point it is given access to the
+input data by its caller.
 
-For that reason, if combinator functions were to accept parameters
-by reference, it could lead to thorny lifetime issues where the
-references become dangling when a combinator object is returned
-from a function without `co_await`ing it, which is convenient to
-be able to do (the JSON parser example does this often).
+For that reason, if combinator functions were to accept
+parameters by reference, it could lead to thorny lifetime issues
+where the references become dangling when a combinator object is
+returned from a function without `co_await`ing it, which is
+convenient to be able to do (the JSON parser example does this
+often).
 
 In order to systematically avoid this problem, this library opts
 for the safe route and thus all combinators accept their
-arguments by value. This may lead to slight inefficiencies, but it
-guarantees that there will not be any dangling references. The
+arguments by value. This may lead to slight inefficiencies, but
+it guarantees that there will not be any dangling references. The
 developer can thus freely create arbitrary combinator creations
 (`co_await`ing the results immediately or at a later time)
 without having to reason about lifetime or dangling references.
 
-Theoretically, it seems that any such issues could be systematically
-avoided by constructing parsers and wrapping combinators in one
-expression and then `co_await`ing the result immediately before
-the expression goes out of scope, as opposed to putting the result
-into a `parser<T>` lvalue and then `co_await`ing on it later.  However,
-to save the developer having to think about that and to give them
-flexibility, the combinators just take their arguments by value.
+Theoretically, it seems that any such issues could be
+systematically avoided by constructing parsers and wrapping
+combinators in one expression and then `co_await`ing the result
+immediately before the expression goes out of scope, as opposed
+to putting the result into a `parser<T>` lvalue and then
+`co_await`ing on it later. However, to save the developer having
+to think about that and to give them flexibility, the combinators
+just take their arguments by value.
 
 The examples in this library have been tested with ASan and they
 do come out clean, for what that is worth.
@@ -389,11 +510,12 @@ Building and Running
 Since C++20 coroutines are a relatively new feature, compiler
 support is currently not perfect.
 
-As of August, 2021, this library has only been tested successfully
-on Clang trunk and (partially successfully) with GCC 11.1.  The
-library runs well with Clang, but unfortunately GCC's coroutine
-support is still generally too buggy to run this reliably, though
-it does seem to be able to run the "hello world" parser example.
+As of August, 2021, this library has only been tested
+successfully on Clang trunk and (partially successfully) with GCC
+11.1. The library runs well with Clang, but unfortunately GCC's
+coroutine support is still generally too buggy to run this
+reliably, though it does seem to be able to run the "hello world"
+parser example.
 
 Not yet tested with MSVC.
 
@@ -401,8 +523,8 @@ Runtime Performance
 -------------------
 When using Clang with optimizations enabled (`-O3`), I have
 observed that a complex parser made of many combinators using
-this library can be optimized by the compiler to a point where
-it runs around 15x slower than a parser hand-coded in C, in the
+this library can be optimized by the compiler to a point where it
+runs around 15x slower than a parser hand-coded in C, in the
 benchmarks that I ran.
 
 Given how incredibly fast a hand-coded C parser can be, it is
@@ -413,35 +535,36 @@ using this library, it could be a valid tradeoff to make in some
 use cases.
 
 In non-optimized builds, the performance (relative to said C
-parser) will be much worse unfortunately.  I believe this
-is likely due to coroutine frame heap allocations not being
-elided in non-optimized builds.
+parser) will be much worse unfortunately. I believe this is
+likely due to coroutine frame heap allocations not being elided
+in non-optimized builds.
 
 On the bright side, I think it is likely that compilers will get
 better in the future with Coroutine optimization and so this will
 hopefully be less of a problem.
 
-As mentioned, it is likely that this library can be tweaked further to
-make it more ammenable to Clang's optimizations of Coroutines.
-PRs are welcome for that if anyone has any expertise there.
+As mentioned, it is likely that this library can be tweaked
+further to make it more ammenable to Clang's optimizations of
+Coroutines. PRs are welcome for that if anyone has any expertise
+there.
 
 I'd really like to improve the performance in non-optimized
 builds, but I'm not sure how feasible that is at this point.
 
 Error Messages
 --------------
-Upon parse failure, the parsco parser framework is always able
-to give the location (line and column) that the error occurred
-in the input text.  However, it is not generally able to provide
-a human-readable error message describing what the parser was
+Upon parse failure, the parsco parser framework is always able to
+give the location (line and column) that the error occurred in
+the input text. However, it is not generally able to provide a
+human-readable error message describing what the parser was
 expecting, unless the failure was initiated by use of the `fail`
 combinator as demonstrated in the Hello World example above.
 
-Ideas are welcome for how to enhance the library so that the
-a given parser can be inspected to automatically determine what
+Ideas are welcome for how to enhance the library so that the a
+given parser can be inspected to automatically determine what
 characters it was expecting (may be challenging to do this
-without the help of the programmer giving hints).  That said,
-even if that were possible, it seems that the most user-intelligible
+without the help of the programmer giving hints). That said, even
+if that were possible, it seems that the most user-intelligible
 error message would still be provided mainly by the programmer
 via the `fail( "..." )` combinator.
 
@@ -452,7 +575,8 @@ Basic/Primitive Parsers
 -----------------------
 
 ## chr
-The `chr` parser consumes a char that must be `c`, otherwise it fails.
+The `chr` parser consumes a char that must be `c`, otherwise it
+fails.
 ```cpp
 parser<char> chr( char c );
 ```
@@ -464,24 +588,24 @@ parser<char> any_chr();
 ```
 
 ## pred
-The `pred` parser parses a single character for which the predicate
-returns true, fails otherwise.
+The `pred` parser parses a single character for which the
+predicate returns true, fails otherwise.
 ```cpp
 template<typename T>
 parser<char> pred( T func );
 ```
 
 ## ret
-The `ret` parser returns a parser that always succeeds and produces
-the given value.
+The `ret` parser returns a parser that always succeeds and
+produces the given value.
 ```cpp
 template<typename T>
 parser<T> ret( T );
 ```
 
 ## space
-The `space` parser consumes one space (as in space bar) character.
-Will fail if it does not find one.
+The `space` parser consumes one space (as in space bar)
+character. Will fail if it does not find one.
 ```cpp
 parser<> space();
 ```
@@ -538,8 +662,8 @@ parser<char> not_of( std::string sv );
 
 ## eof
 The `eof` parser succeeds if the input stream is finished, and
-fails otherwise. Can be used to test if all input has been consumed
-Although see the `exhaust` parser below.
+fails otherwise. Can be used to test if all input has been
+consumed Although see the `exhaust` parser below.
 ```cpp
 parser<> eof();
 ```
@@ -552,24 +676,26 @@ may not succeed and backtracking if it fails.
 
 ## try_
 The `try_` combinator simply wraps another parser and signals
-that it is to be allowed to fail.  Moreover, the `try_` wrapper
-will wrap the return type of the parser in a `parsco::result_t<T>`,
-which is analogous to a `std::expected` (we will use `std::expected`
-when it becomes available).
+that it is to be allowed to fail. Moreover, the `try_` wrapper
+will wrap the return type of the parser in a
+`parsco::result_t<T>`, which is analogous to a `std::expected`
+(we will use `std::expected` when it becomes available).
 ```cpp
 template<Parser P> // note Parser here is a C++20 Concept.
 parser<parsco::result_t<R>> try_( P p );
 ```
-where `R` is `P::value_type`, i.e., the result of running parser `p`.
+where `R` is `P::value_type`, i.e., the result of running parser
+`p`.
 
 In other words, if `p` is a parser of type `parser<T>`, then
-`try_{ p }` yields a parser of type `parser<parsco::result_t<T>>`.
-When it is run, the parser `p` will be run and, if it fails,
-the resulting `result_t` will contain an error and the parser
-will have backtracked to restore the current position in the
-input buffer to what it was before the parser began, thus giving
-subsequent parsers the opportunity to parse the same input.
-If `p` succeeds, then the `result_t` contains its result.
+`try_{ p }` yields a parser of type
+`parser<parsco::result_t<T>>`. When it is run, the parser `p`
+will be run and, if it fails, the resulting `result_t` will
+contain an error and the parser will have backtracked to restore
+the current position in the input buffer to what it was before
+the parser began, thus giving subsequent parsers the opportunity
+to parse the same input. If `p` succeeds, then the `result_t`
+contains its result.
 
 Hence, a parser wrapped in `try_` never fails in the sense that
 parsers normally fail in this library (by aborting the entire
@@ -577,10 +703,10 @@ parse); instead, a failure is communicated via return value.
 
 ## try_ignore
 The `try_ignore` parser will try running the given parser but
-ignore the result.  This is useful if you want to run a parser
-but a) you don't care if it succeeds, and b) you don't care
-what its result is if it succeeds.  This can sometimes help
-to get rid of "unused return value" compiler warnings.
+ignore the result. This is useful if you want to run a parser but
+a) you don't care if it succeeds, and b) you don't care what its
+result is if it succeeds. This can sometimes help to get rid of
+"unused return value" compiler warnings.
 ```cpp
 template<Parser P>
 parser<> try_ignore( P p );
@@ -615,8 +741,8 @@ The `double_quoted_str` and `single_quoted_str` respectively
 parse "..." or '...' and returns the stuff inside, which may
 contain newlines. Note that these return string views into the
 buffer because they are implemented using "magic" primitives,
-i.e., combinators for which there is special support within
-the `parsco::promise_type` object, just for efficiency.
+i.e., combinators for which there is special support within the
+`parsco::promise_type` object, just for efficiency.
 ```cpp
 parser<std::string_view> double_quoted_str();
 parser<std::string_view> single_quoted_str();
@@ -633,9 +759,9 @@ parser<std::string> quoted_str();
 Sequences
 ---------
 Many of the combinators in this section are actually higher-order
-functions. They take functions that, when called (which is typ-
-ically done in some repeated fashion), produce parser objects to
-be run.
+functions. They take functions that, when called (which is
+typically done in some repeated fashion), produce parser objects
+to be run.
 
 A single `parser<T>` object represents a live coroutine, and so
 it itself cannot be run multiple times; instead, if a combinator
@@ -648,29 +774,29 @@ The `many` parser parses zero or more of the given parser.
 template<typename Func, typename... Args>
 parser<R> many( Func f, Args... args );
 ```
-where `R` is a `std::vector` if the element parser returns something
-other than a character, or a `std::string` otherwise.
+where `R` is a `std::vector` if the element parser returns
+something other than a character, or a `std::string` otherwise.
 
-As mentioned in the introduction to this section,  the
-argument to the combinator is not actually a parser, but rather
-a function which, when called with the given arguments, produces
-a parser object.  The function will be invoked on the arguments
-multiple times to repeatedly generate parsers until a parser
-fails to parse, at which point the `many` parser finishes
-(always successfully) and backtracks over any fragment of
-input that failed parsing in the last iteration.
+As mentioned in the introduction to this section, the argument to
+the combinator is not actually a parser, but rather a function
+which, when called with the given arguments, produces a parser
+object. The function will be invoked on the arguments multiple
+times to repeatedly generate parsers until a parser fails to
+parse, at which point the `many` parser finishes (always
+successfully) and backtracks over any fragment of input that
+failed parsing in the last iteration.
 
 ## many_type
 The `many_type` parser parses zero or more of the given type for
-the given language tag using the parsco ADH extension point mechanism.
-That is, it will call `parsco::parse<Lang, T>()` to parse a `T`
-and may do so multiple times.
+the given language tag using the parsco ADH extension point
+mechanism. That is, it will call `parsco::parse<Lang, T>()` to
+parse a `T` and may do so multiple times.
 ```cpp
 template<typename Lang, typename T>
 parser<R> many_type();
 ```
-where `R` is a `std::vector` if the element parser returns something
-other than a character, or a `std::string` otherwise.
+where `R` is a `std::vector` if the element parser returns
+something other than a character, or a `std::string` otherwise.
 
 See the JSON example in the examples folder or the above section
 on user types for how to make user-defined types parsable using
@@ -684,12 +810,12 @@ function on the given arguments).
 template<typename Func, typename... Args>
 auto many1( Func f, Args... args ) const -> parser<R>;
 ```
-where `R` is a `std::vector` if the element parser returns something
-other than a character, or a `std::string` otherwise.
+where `R` is a `std::vector` if the element parser returns
+something other than a character, or a `std::string` otherwise.
 
 ## seq
-The `seq` parser runs multiple parsers in sequence, and only succeeds
-if all of them succeed. Returns all results in a tuple.
+The `seq` parser runs multiple parsers in sequence, and only
+succeeds if all of them succeed. Returns all results in a tuple.
 ```cpp
 template<typename... Parsers>
 parser<std::tuple<...>> seq( Parsers... );
@@ -701,26 +827,26 @@ subsequent ones will not be run.
 
 ## seq_last
 The `seq_last` parser runs multiple parsers in sequence, and only
-succeeds if all of them succeed. Returns the result of the
-last parser.
+succeeds if all of them succeed. Returns the result of the last
+parser.
 ```cpp
 template<typename... Parsers>
 parser<R> seq_last( Parsers... ps );
 ```
-where `R` is the `value_type` of the last parser in the argument list.
-As above, this combinator also takes parser objects directly as opposed
-to functions.
+where `R` is the `value_type` of the last parser in the argument
+list. As above, this combinator also takes parser objects
+directly as opposed to functions.
 
 ## seq_first
-The `seq_first` parser runs multiple parsers in sequence, and only
-succeeds if all of them succeed. Returns first result.
+The `seq_first` parser runs multiple parsers in sequence, and
+only succeeds if all of them succeed. Returns first result.
 ```cpp
 template<typename... Parsers>
 parser<R> seq_first( Parsers... ps );
 ```
-where `R` is the `value_type` of the first parser in the argument list.
-As above, this combinator also takes parser objects directly as opposed
-to functions.
+where `R` is the `value_type` of the first parser in the argument
+list. As above, this combinator also takes parser objects
+directly as opposed to functions.
 
 ## interleave_first
 The `interleave_first` parses "g f g f g f" and returns the f's.
@@ -728,7 +854,7 @@ The `interleave_first` parses "g f g f g f" and returns the f's.
 template<typename F, typename G>
 parser<R> interleave_first( F f, G g, bool sep_required = true );
 ```
-where `R` is the `value_type` of the parser `f`.  `F` and `G` are
+where `R` is the `value_type` of the parser `f`. `F` and `G` are
 nullary functions that return parser objects.
 
 ## interleave_last
@@ -737,7 +863,7 @@ The `interleave_last` parses "f g f g f g" and returns the f's.
 template<typename F, typename G>
 parser<R> interleave_last( F f, G g, bool sep_required = true );
 ```
-where `R` is the `value_type` of the parser `f`.  `F` and `G` are
+where `R` is the `value_type` of the parser `f`. `F` and `G` are
 nullary functions that return parser objects.
 
 ## interleave
@@ -746,12 +872,12 @@ The `interleave` parses "f g f g f" and returns the f's.
 template<typename F, typename G>
 parser<R> interleave( F f, G g, bool sep_required = true );
 ```
-where `R` is the `value_type` of the parser `f`.  `F` and `G` are
+where `R` is the `value_type` of the parser `f`. `F` and `G` are
 nullary functions that return parser objects.
 
 ## cat
-The `cat` parser runs multiple string-yielding parsers in sequence
-and concatenates the results into one string.
+The `cat` parser runs multiple string-yielding parsers in
+sequence and concatenates the results into one string.
 ```cpp
 template<typename... Parsers>
 parser<std::string> cat( Parsers... ps );
@@ -781,16 +907,16 @@ co_await (identifier() << blanks());
 ```
 Note: despite the direction that the operator is pointing (`<<`),
 the parsers are still run from left-to-right order, and the
-result of the left-most one is returned, assuming of course
-that they all succeed.
+result of the left-most one is returned, assuming of course that
+they all succeed.
 
 Alternatives
 ------------
 
 This means that we give a set of possible parsers, only one of
-which needs to succeed.  These parsers use the `try_` combinator
-internally, and so therefore they will do backtracking after
-each failed parser before invoking the next one.
+which needs to succeed. These parsers use the `try_` combinator
+internally, and so therefore they will do backtracking after each
+failed parser before invoking the next one.
 
 ## first
 The `first` parser runs the parsers in sequence until the first
@@ -804,12 +930,12 @@ requires( std::is_same_v<typename P::value_type,
                          typename Ps::value_type> && ...)
 parser<R> first( P fst, Ps... rest );
 ```
-where `R` is `P::value_type`.  When one parser succeeds,
+where `R` is `P::value_type`. When one parser succeeds,
 subsequent parsers will not be run.
 
 ## | operator
 The `|` operator runs the parser in the order given and returns
-the result of the first one that succeeds.  The parsers must all
+the result of the first one that succeeds. The parsers must all
 return the same type.
 ```cpp
 template<Parser T, Parser U>
@@ -823,15 +949,15 @@ This is equivalent to the `first` parser above.
 Function Application
 --------------------
 
-The combinators in this section have to do with invoking functions
-on the results of parsers.
+The combinators in this section have to do with invoking
+functions on the results of parsers.
 
 ## invoke
 The `invoke` parser calls the given function with the results of
 the parsers as arguments (which must all succeed).
 
-NOTE: the parsers are guaranteed to be run in the order they appear
-in the parameter list, and that is one of the benefits of
+NOTE: the parsers are guaranteed to be run in the order they
+appear in the parameter list, and that is one of the benefits of
 using this helper.
 ```cpp
 template<typename Func, typename... Parsers>
@@ -843,7 +969,7 @@ with the results of all of the parsers are arguments.
 More explicitly, this combinator will run all of the parsers `ps`
 in the order they are passed to the function, and then use their
 results as the arguments to the function `f`, which must itself
-produce a parser.  So in other wods, if we do this:
+produce a parser. So in other wods, if we do this:
 
 ```cpp
 auto r = co_await parsco::invoke( f, any_char(), any_char() );
@@ -858,17 +984,19 @@ auto r = co_await f( c1, c2 );
 ```
 
 and thus as can be seen, this parser (like many others) is for
-convenience; it does not do anything that couldn't be done manually.
+convenience; it does not do anything that couldn't be done
+manually.
 
 ## emplace
-The `emplace` parser calls the constructor of the given type `T` with
-the results of the parsers as arguments (which must all succeed).
+The `emplace` parser calls the constructor of the given type `T`
+with the results of the parsers as arguments (which must all
+succeed).
 ```cpp
 template<typename T, typename... Parsers>
 parser<T> emplace( Parsers... ps );
 ```
-The parsers will be run in the order they are passed to the function.
-Example:
+The parsers will be run in the order they are passed to the
+function. Example:
 
 ```cpp
 struct Point {
@@ -883,21 +1011,21 @@ Point p = co_await parsco::emplace<Point>( parse_int(),
 ```
 In particular, note that we are not `co_await`ing on the results
 of the `parse_int()` calls; we just give the combinators to
-`emplace` and it does the rest.  This can reduce some verbosity
-in parsers from time to time.  Think of this as an analog to
+`emplace` and it does the rest. This can reduce some verbosity in
+parsers from time to time. Think of this as an analog to
 Haskell's `<$>` operator for Applicatives.
 
 ## fmap
-The venerable `fmap` combinator runs the parser `p` and applies the
-given function to the result, if successful.  The function typically
-does not return a parser; it is just a normal function.
+The venerable `fmap` combinator runs the parser `p` and applies
+the given function to the result, if successful. The function
+typically does not return a parser; it is just a normal function.
 ```cpp
 template<Parser P, typename Func>
   requires( std::is_invocable_v<Func, typename P::value_type> )
 parser<R> fmap( Func f, P p );
 ```
 where `R` is the result of invoking the function on the
-`value_type` of the parser `p`.  This can be seen as a
+`value_type` of the parser `p`. This can be seen as a
 single-parameter version of the `invoke` combinator above.
 
 Error Detection
@@ -912,13 +1040,13 @@ template<typename Parser>
 Parser on_error( Parser p, std::string err_msg );
 ```
 This is used to provide more meaningful error messages to users
-in response to a given parser having failed.  If you use this
+in response to a given parser having failed. If you use this
 combinator at all, then generally you'll want to use it on
 lower-level (leaf) parsers as opposed to using it to wrap higher
 level parsers; if you do the latter then it will effectively
 suppress error messages from all lower parsers, replacing them
-with a single error message, which is probably not useful to
-the user.
+with a single error message, which is probably not useful to the
+user.
 
 A better use would be with a parser like `chr`:
 
@@ -929,10 +1057,10 @@ char c = co_await on_error( chr( '=' ), "assignment operator is required because
 ```
 
 which will give the user a meaningful error message; had the
-`on_error` combinator not been used, then the error message
-would have defaulted to that produced by `chr`, which, at
-best, would be limited to something like "expected =" (that
-is the best that the `chr` combinator can do on its own).
+`on_error` combinator not been used, then the error message would
+have defaulted to that produced by `chr`, which, at best, would
+be limited to something like "expected =" (that is the best that
+the `chr` combinator can do on its own).
 
 ## exhaust
 The `exhaust` parser runs the given parser and then checks that
@@ -948,28 +1076,29 @@ Parser exhaust( Parser p );
 The `lift` parser is not really a parser, it just takes a
 nullable entity (such as a `std::optional`, `std::expected`,
 `std::unique_ptr`, `parsco::result_t<T>`, etc.), and it will
-return a "fake" parser that, when run, will try to get the
-value from inside of the nullable object.  If the object does
-not contain a value, then the parser will fail.  If it does
-contain an object, the parser will yield it as its result.
+return a "fake" parser that, when run, will try to get the value
+from inside of the nullable object. If the object does not
+contain a value, then the parser will fail. If it does contain an
+object, the parser will yield it as its result.
 ```cpp
 template<Nullable N>
 parser<typename N::value_type> lift( N n );
 ```
 
-Conceptually this is analogous to a monadic "lift" operation
-as you'd have in functional languages where a monadic value is lifted
-from an inner monad (e.g. `std::optional<T>`) to the transformed
-monad (`parsco::parser<T>`).
+Conceptually this is analogous to a monadic "lift" operation as
+you'd have in functional languages where a monadic value is
+lifted from an inner monad (e.g. `std::optional<T>`) to the
+transformed monad (`parsco::parser<T>`).
 
 Miscellaneous
 -------------
 
 ## bracketed
-The `bracketed` parser runs the given parser `p` between characters
-`l` and `r` (or parsers `l` and `r`, depending on the overload chosen)
-and, if all parsers are successful, returns only the result of
-the parser `p` (i.e., what is inside the delimiters).
+The `bracketed` parser runs the given parser `p` between
+characters `l` and `r` (or parsers `l` and `r`, depending on the
+overload chosen) and, if all parsers are successful, returns only
+the result of the parser `p` (i.e., what is inside the
+delimiters).
 ```cpp
 template<typename T>
 parser<T> bracketed( char l, parser<T> p, char r );
@@ -978,8 +1107,8 @@ template<typename L, typename R, typename T>
 parser<T> bracketed( parser<L> l, parser<T> p, parser<R> r );
 ```
 
-For example, to parse an identifier between two curly braces,
-you could do:
+For example, to parse an identifier between two curly braces, you
+could do:
 
 ```cpp
 using namespace parsco;
@@ -996,10 +1125,10 @@ Combinator Niebloids
 --------------------
 As a quick implementation note on the above combinators, if you
 look at the source code (mainly in `combinators.hpp`) you'll
-notice that many of them are implemented as niebloids instead
-of function templates.  This is actually not to do with ADL
-but instead is to work around an issue that Clang seems to
-have with function template coroutines (it yields strange
-runtime errors when such a coroutine is called).  Hopefully
-that will be fixed eventually, at which point the niebloids
-in this library can be changed back to function templates.
+notice that many of them are implemented as niebloids instead of
+function templates. This is actually not to do with ADL but
+instead is to work around an issue that Clang seems to have with
+function template coroutines (it yields strange runtime errors
+when such a coroutine is called). Hopefully that will be fixed
+eventually, at which point the niebloids in this library can be
+changed back to function templates.
