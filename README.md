@@ -1049,7 +1049,7 @@ of the `parse_int()` calls; we just give the combinators to
 parsers from time to time. Think of this as an analog to
 Haskell's `<$>` operator for Applicatives.
 
-### fmap
+### `fmap`
 The venerable `fmap` combinator runs the parser `p` and applies
 the given function to the result, if successful. The function
 typically does not return a parser; it is just a normal function.
