@@ -587,8 +587,6 @@ this library.
 
 ## Basic Parsers
 
----
-
 ### chr
 The `chr` parser consumes a char that must be `c`, otherwise it
 fails.
@@ -700,8 +698,6 @@ parser<> eof();
 
 ## Try
 
----
-
 The `try_*` family of combinators allow attempting a parser which
 may not succeed and backtracking if it fails.
 
@@ -744,8 +740,6 @@ parser<> try_ignore( P p );
 ```
 
 ## Strings
-
----
 
 ### str
 The `str` parser attempts to consume the exact string given at
@@ -799,8 +793,6 @@ parser<std::string> quoted_str();
 ```
 
 ## Sequences
-
----
 
 Many of the combinators in this section are actually higher-order
 functions. They take functions that, when called (which is
@@ -956,8 +948,6 @@ they all succeed.
 
 ## Alternatives
 
----
-
 This means that we give a set of possible parsers, only one of
 which needs to succeed. These parsers use the `try_` combinator
 internally, and so therefore they will do backtracking after each
@@ -992,8 +982,6 @@ co_await (identifier() | quoted_str());
 This is equivalent to the `first` parser above.
 
 ## Function Application
-
----
 
 The combinators in this section have to do with invoking
 functions on the results of parsers.
@@ -1076,8 +1064,6 @@ single-parameter version of the `invoke` combinator above.
 
 ## Error Detection
 
----
-
 ### on_error
 The `on_error` combinator runs the given parser and if it fails
 it will return the error message given (as opposed to any error
@@ -1138,8 +1124,6 @@ lifted from an inner monad (e.g. `std::optional<T>`) to the
 transformed monad (`parsco::parser<T>`).
 
 ## Miscellaneous
-
----
 
 ### bracketed
 The `bracketed` parser runs the given parser `p` between
