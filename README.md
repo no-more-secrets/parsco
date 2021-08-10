@@ -164,26 +164,25 @@ refer to as the "hello world" grammar. It is defined as follows:
    separated by a comma, spaces are optional after the comma. If
    there is a comma, it must come immediately after the first
    word.
-8. The entire input string must be consumed.
 
 Examples:
 ```cpp
-"Hello, World!!",      // should pass
+"Hello, World!!",      // should pass, and consume all input.
 "  hello , world!!  ", // should fail (#7 violated)
-"  hello, world!!!! ", // should pass
+"  hello, world!!!! ", // should pass, and consume all input.
 "  hello, world!!!  ", // should fail (#6 violated)
 "hEllo, World",        // should fail (#4 violated)
-"hello world",         // should pass
+"hello world",         // should pass, and consume all input.
 "HelloWorld",          // should fail (#7 violated)
-"hello,world",         // should pass
+"hello,world",         // should pass, and consume all input.
 "hello, World",        // should fail (#3 violated)
-"hello, world!!!!!!",  // should pass
-"hello, world !!!!",   // should fail (#5 violated)
-"hello, world ",       // should pass
-"hello, world!! x",    // should fail (#8 violated)
+"hello, world!!!!!!",  // should pass, and consume all input.
+"hello, world !!!!",   // should pass, but not consume all input.
+"hello, world ",       // should pass, and consume all input.
+"hello, world!! x",    // should pass, but not consume all input.
 ```
 
-That is clearly a contrived grammar, but it will allow us to
+This is clearly a contrived grammar, but it will allow us to
 demonstrate some of the basic facilities in this library.
 The following is a Parsco parser that parses this grammar:
 
@@ -242,7 +241,7 @@ parsco::parser<string> parse_hello_world() {
 
 See the file `hello-world-parser.cpp` in the examples folder for
 a runnable demo of calling this parser on the above input data.
-Essentially we do this:
+Essentially, we do this:
 
 ```cpp
 // This should conform to the above grammar.
@@ -290,13 +289,11 @@ test "hello, World"        failed to parse:
 
 test "hello, world!!!!!!"  succeeded to parse.
 
-test "hello, world !!!!"   failed to parse:
-                           fake-filename.txt:error:1:14 failed to parse all characters in input stream
+test "hello, world !!!!"   succeeded to parse.
 
 test "hello, world "       succeeded to parse.
 
-test "hello, world!! x"    failed to parse:
-                           fake-filename.txt:error:1:16 failed to parse all characters in input stream
+test "hello, world!! x"    succeeded to parse.
 ```
 
 Note that in those cases where we provided an error message
@@ -304,13 +301,11 @@ ourselves via the `fail` combinator, it gives it to the user
 and this can result in a better experience.
 
 Before closing this example, let's extend it a bit more. Let's
-say that we want to allow more than one occurrence of the above
-"hello world"s in the input buffer (i.e., one or more) and then
-have the parser return the number that were found. In order to do
-that, we first have to remove the `eof` combinator from the
-hello world example because we are no longer requiring that the
-input be entirely consumed after a single occurrence. Then, we do
-the following:
+say that we want to allow more than one occurrence of the
+"hello world" in the input buffer (i.e., one or more) and then
+have the parser return the number that were found.  To do this,
+we can just use our existing `parse_hello_world` parser and
+wrap it in a combinator:
 
 ```cpp
 parsco::parser<int> parse_hello_worlds() {
@@ -322,15 +317,15 @@ parsco::parser<int> parse_hello_worlds() {
 
 where the `parsco::many1` combinator parses one or more of the
 given parser. That means that it will fail unless there is at
-least one correctly-parsed "hello world". But note that it may
+least one correctly-parsed "hello world." But note that it may
 not consume the entire input; in the face of a syntax error in
 the first occurrence it will fail, but syntax errors in
 subsequent occurrences will simply cause `parsco::many1` to stop
-parsing (successfully) and return what it has, leaving the input
-buffer with remaining characters. If we want to ensure that it
-consumes the entire input buffer, we can use either the `eof`
-approach used in the original hello world example, or we can
-use the `parsco::exhaust` combinator:
+parsing (reporting success) and to return what it has, leaving
+the input buffer with remaining unparsed characters. If we want
+to ensure that it consumes the entire input buffer, we can use
+either the `eof` combinator or the `parsco::exhaust` combinator;
+an example of the latter is:
 
 ```cpp
 parsco::parser<int> parse_hello_worlds() {
@@ -339,6 +334,13 @@ parsco::parser<int> parse_hello_worlds() {
   co_return hello_worlds.size();
 }
 ```
+
+The `parsco::exhaust` combinator returns a parser that only
+succeeds if the parser given to it succeeds _and_ consumes all
+input; otherwise, the parser fails.
+
+See the section called "Combinator Reference" for a complete
+reference of all parsers and combinators.
 
 Example 3: JSON Parser
 ----------------------

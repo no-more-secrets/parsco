@@ -57,7 +57,6 @@ using namespace parsco;
 //    separated by a comma, spaces are optional after the comma.
 //    If there is a comma, it must come immediately after the
 //    first word.
-// 8. The entire input string must be consumed.
 //
 // The following is a parsco parser that parses this grammar:
 
@@ -121,10 +120,6 @@ parser<string> parse_hello_world() {
   // Eat blanks. We could have used the >> operator again to se-
   // quence this, or we can put it as its own statement.
   co_await blanks();
-
-  // The `eof' parser fails if and only we have not consumed the
-  // entire input.
-  co_await eof();
 
   // This is optional, since we're just validating the input, but
   // it demonstrates how to return a result from the parser.
