@@ -586,7 +586,7 @@ Clang 12) along with a standard library that supports enough
 of C++20 and Coroutines.  For the standard library I use libstdc++
 from gcc 11.1.0, though more recent ones should work as well.
 
-The build is done with CMake, and here is a typical invocation
+The build is done with CMake, and here is a typical build process
 that I use on Ubuntu Linux 20.04 on an `x86_64` system that will
 use a build of LLVM located at `/path/to/llvm` and a libstdc++
 11.1.0 located in `/path/to/gcc`:
@@ -602,11 +602,11 @@ $ cd parsco
 # From the parsco directory:
 $ mkdir build
 $ cd build
-$ cmake ../.. \
+$ cmake .. \
        -DCMAKE_BUILD_TYPE=Release \
-       -DCMAKE_CXX_COMPILER=/path/to/llvm/bin/clang++ \
-       -DCMAKE_CXX_FLAGS_INIT=-nostdinc++ -I/path/to/gcc/include/c++/11.1.0 -I/path/to/gcc/include/c++/11.1.0/x86_64-pc-linux-gnu \
-       -DCMAKE_EXE_LINKER_FLAGS_INIT=-Wl,-rpath,/path/to/gcc/lib64 -L/path/to/gcc/lib64 -fuse-ld=lld
+       -DCMAKE_CXX_COMPILER="/path/to/llvm/bin/clang++" \
+       -DCMAKE_CXX_FLAGS_INIT="-nostdinc++ -I/path/to/gcc/include/c++/11.1.0 -I/path/to/gcc/include/c++/11.1.0/x86_64-pc-linux-gnu" \
+       -DCMAKE_EXE_LINKER_FLAGS_INIT="-Wl,-rpath,/path/to/gcc/lib64 -L/path/to/gcc/lib64 -fuse-ld=lld"
 ```
 
 ### Build
