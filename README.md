@@ -134,27 +134,30 @@ refer to as the "hello world" grammar. It is defined as follows:
    lowercase or both uppercase.
 4. Subsequent letters in each word must always be lowercase.
 5. The second word may have an arbitrary number of exclamation
-   marks after it, but they must begin right after the second
-   word.
+   marks after it, but they must begin immediately after the
+   second word (no spaces).
 6. The number of exclamation marks, if any, must be even.
 7. The two words can be separated by spaces or by a comma. If
-   separated by a comma, spaces are optional after the comma.
+   separated by a comma, spaces are optional after the comma. If
+   there is a comma, it must come immediately after the first
+   word.
+8. The entire input string must be consumed.
 
 Examples:
 ```cpp
-"Hello, World!!",      // should pass.
-"  hello , world!!  ", // should fail.
-"  hello, world!!!! ", // should pass.
-"  hello, world!!!  ", // should fail.
-"hEllo, World",        // should fail.
-"hello world",         // should pass.
-"HelloWorld",          // should fail.
-"hello,world",         // should pass.
-"hello, World",        // should fail.
-"hello, world!!!!!!",  // should pass.
-"hello, world !!!!",   // should fail.
-"hello, world ",       // should pass.
-"hello, world!! x",    // should fail.
+"Hello, World!!",      // should pass
+"  hello , world!!  ", // should fail (#7 violated)
+"  hello, world!!!! ", // should pass
+"  hello, world!!!  ", // should fail (#6 violated)
+"hEllo, World",        // should fail (#4 violated)
+"hello world",         // should pass
+"HelloWorld",          // should fail (#7 violated)
+"hello,world",         // should pass
+"hello, World",        // should fail (#3 violated)
+"hello, world!!!!!!",  // should pass
+"hello, world !!!!",   // should fail (#5 violated)
+"hello, world ",       // should pass
+"hello, world!! x",    // should fail (#8 violated)
 ```
 
 The following is a parsco parser that parses this grammar:
