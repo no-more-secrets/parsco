@@ -40,8 +40,7 @@ parsco::parser<char> parse_two_same() {
 Running this parser can result in three possible outcomes:
 
 1. The parser finds two characters and they are both the same,
-   e.g. "xx". In that case, the returned parser object will yield
-   'x'.
+   e.g. "xx". In that case, the parser will yield 'x'.
 2. The parser finds two characters and they are not the same. In
    that case, the parser will fail with an error message. The
    particular error message depends on which of the above two
@@ -52,41 +51,46 @@ Running this parser can result in three possible outcomes:
 
 The parsers used above (`chr` and `any_chr`) are functions that
 return `parser<T>`s (in this case, `T` is `char`). As can be
-seen, they have been combined to yield higher-level functions
-(`parse_two_same`) which is itself a parser in that it returns a
+seen, they have been combined to yield a higher-level function
+`parse_two_same` which is itself a parser in that it returns a
 `parser<T>`. This `parse_two_same` parser can thus can be used to
 build even more complex parsers in a similar way, namely by
-calling them, getting the `parser<t>`s that they return, and then
-using the C++20 `co_await` keyword to run them and get the
-result.
+using the C++20 `co_await` keyword on the parser object that
+it returns.
 
-What are Coroutines and Combinators?
-------------------------------------
+What are Parsers, Coroutines and Combinators?
+--------------------------------------------
 With the first example out of the way, let's discuss what is
 happening under the hood.
 
-First, a "parser" in the context of this library is an object of
-type `parsco::parser<T>`. This object is created by calling a
-function that returns such an object, and does nothing on its
-own. When it is `co_await`ed then it will be given access to the
-input stream and it will begin parsing. If it succeeds, then it
-will result in an object of type `T`.
+### Parsers
+The term "parser" in this library is a bit
+overloaded. It can refer to an object of type `parsco::parser<T>`
+or to a coroutine function that returns one. It is ok to think of
+them as equivalent for now. In fact, the parser object owns (in
+RAII sense) the coroutine.
 
-A parser combinator is a function (or higher-order function) that
-acts as a simple building block for creating more complex
-parsers. They typically take as parameters either parser objects
-or functions that return parser objects, and then construct a new
-parser and return it as a new `parsco::parser<T>` object.
+Typically, a parser is created by calling a coroutine function
+that returns a `parsco::parser<T>` and then that parser is run
+by applying C++20's `co_await` keyword to it.  A parser object
+does nothing on its own; it is only when it is `co_await`ed
+that it is given access to the input string and begins to
+parse. If it succeeds, then it will result in an object of
+type `T`.  If it fails, it will automagically unwind the entire
+parser call stack and deliver an error messages to the original
+caller of the overall parse operation.
 
-In this library, parsers and combinators are glued together using
-C++20 Coroutines. An explanation of how C++20 coroutines work in
-general is beyond the scope of this README; however, you do not
-need to fully understand them to use this library. That said, if
-you do want an in-depth look into how C++ coroutines work, see
-[this blog](https://lewissbaker.github.io/).
+### Coroutines
+In this library, parsers are "glued together"
+using C++20 Coroutines. An explanation of how C++20 coroutines
+work in general is beyond the scope of this README; for an
+in-depth look into how C++ coroutines work, see [this
+blog](https://lewissbaker.github.io/). However, you do not need
+to fully understand them to use this library, so feel free to
+continue on in this tutorial either way.
 
-For the purposes of using this library, just know that a
-coroutine is a function that
+For the purposes of using this library, a coroutine is a function
+that
 
 1. Returns a `parsco::parser<T>` type.
 2. Uses one or both of the keywords `co_await` and `co_return` in
@@ -94,25 +98,27 @@ coroutine is a function that
 3. Has the ability (unlike a conventional function) to suspend and
    resume execution.
 
-When a coroutine is first called, the runtime will setup a
-coroutine frame consisting of a "promise" object. Then, while
-executing the coroutine, each time the `co_await` or `co_return`
-keywords are used, the compiler will query the promise object via
-some extension points to ask it what to do in response. This
-promise object (and the hidden calls to query it) are leveraged
-by this library to allow the coroutine to automatically handle
-the the following things that need to be done while parsing:
+When a coroutine is first called, the C++ language "runtime" will
+setup a coroutine frame consisting of a "promise" object and enough
+space to hold any local variables in the function. Then,
+while executing the coroutine, each time the `co_await` or
+`co_return` keywords are used, the compiler will query the
+promise object via some extension points to ask it what to do in
+response. This promise object (and the hidden calls to query it)
+are leveraged by this library to automate the following tasks
+which must be done to parse a string:
 
-1. Keep track of the input buffer and the current position in the
-   input buffer.
-2. Detect a premature EOF (end of input stream) and terminate the
-   parse all of the way up the call stack.
-3. Detect and handle parsing errors (i.e., syntax errors in the
+1. Passing around the input buffer.
+2. Keeping track of the current position in the input buffer.
+3. Detecting a premature EOF (end of input stream) and potentially
+   terminating the parse.
+4. Detecting and handle parsing errors (i.e., syntax errors in the
    input), which can result in either cancelling the entire parse
-   (cascading up the call stack) or in backtracking to reattempt
-   with another parser. In the former case, it will provide an
-   error message and input buffer location to the user.
-4. Returning of the result of parsing.
+   (unwinding the call stack) or in backtracking to reattempt
+   with another parser.
+5. Providing error message and input buffer location to the user
+   in the case of a parsing error.
+6. Returning of the result of parsing in a type-safe way.
 
 All of this happens automatically when you `co_await` on a parser
 object.
@@ -121,6 +127,23 @@ Since the coroutines thread the input buffer pointers and state
 through the coroutine call stack automatically, there is no
 global state in the library, hence we have nice properties of
 being re-entrant and thread safe (though only in that sense).
+
+### Combinators
+A parser combinator is a function (or
+higher-order function) that can transform a given parser into a
+different or more complex parser. Combinators are used to glue
+together primitive (basic) parsers into more complex ones.
+They typically take as parameters either parser objects or
+functions that return parser objects, and then construct a new
+parser and return it as a new `parsco::parser<T>` object.
+
+In this library, you will build up your parsers by using
+combinators to combine simple parsers into more complex ones.
+In fact, in many cases, a parser can be constructed using
+existing combinators alone without requiring any coroutines.
+The coroutines will still be needed though, in cases where
+a parser requires some new logic not provided by an existing
+combinator.
 
 Example 2: The Hello World Parser
 ---------------------------------
