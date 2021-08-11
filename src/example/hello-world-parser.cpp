@@ -142,9 +142,9 @@ int main( int, char** ) {
       "hello,world",         // should pass.
       "hello, World",        // should fail.
       "hello, world!!!!!!",  // should pass.
-      "hello, world !!!!",   // should fail.
+      "hello, world !!!!",   // should pass.
       "hello, world ",       // should pass.
-      "hello, world!! x",    // should fail.
+      "hello, world!! x",    // should pass.
   };
 
   using namespace parsco;
