@@ -63,62 +63,43 @@ using namespace parsco;
 // This is a parser for the "hello world" grammar. See README
 // file for explanation.
 parser<string> parse_hello_world() {
-  // Parse one char exactly, and it must be eith 'h' or 'H'. Our
-  // grammar dictates that the "hello" can start with either a
-  // lowercase of capital h. blanks eats up any space characters,
-  // and the >> operator is a sequencing operator that will run
-  // the first parser (blanks) ensuring that it succeeds, will
-  // throw away the result, then will invoke the second parser,
-  // again ensuring that it succeeds and returning its result.
-  char h = co_await( blanks() >> one_of( "hH" ) );
+  // Eat spaces.
+  co_await blanks();
+  // Parse one char exactly, and it must be either 'h' or 'H'.
+  // Our grammar dictates that the "hello" can start with either
+  // a lowercase of capital h.
+  char h = co_await one_of( "hH" );
 
   // But the rest of the letters in the word must be lowercase.
   // Parse the given string exactly.
   co_await str( "ello" );
 
-  // By default this parsing framework does not backtrack on
-  // failure. However, in cases where that is needed, any parser
-  // can be wrapped in `try_' and it will allow failure in the
-  // sense that the wrapped parser failing will not cause failure
-  // of the parent parser and any input consumed by the parser
-  // before it failed will be refunded to the input buffer so
-  // that the next parser can try it.
+  // We can have a comman followed by zero or more spaces, or we
+  // can have one-or-more spaces.
   //
-  // In this case, our grammar dictates that a comma may separate
-  // the two words but that it is optional, so we use a try_.
-  // Wrapping in try_ also has the effect of wrapping the return
-  // type in a result_t<T>, which we can then test to see if the
-  // parser succeeded.
-  result_t<char> comma = co_await try_{ chr( ',' ) };
-
-  // The next bit of grammar dictates that if there is a comma
-  // then there does not have to be a space between the words,
-  // otherwise there must be.
-  if( comma.has_value() )
-    co_await many( space );
-  else
-    co_await many1( space );
+  // The >> operator is a sequencing operator that will run
+  // the first parser, ensuring that it succeeds, and will
+  // throw away the result. Then it will invoke the second
+  // parser, again ensuring that it succeeds and returning its
+  // result.
+  //
+  // The | operator runs the first parser and if it succeeds,
+  // returns its result; otherwise runs the second parser and
+  // returns its result, or fails if it fails.
+  co_await( ( chr( ',' ) >> blanks() ) | many1( space ) );
 
   // Our grammar rules say that the two words must have the same
   // capitalization.
-  if( h == 'h' )
-    co_await chr( 'w' );
-  else
-    co_await chr( 'W' );
+  ( h == 'h' ) ? co_await str( "world" )
+               : co_await str( "World" );
 
-  // The remainder of the word must always be lowercase.
-  co_await str( "orld" );
+  // Parse zero or more exclamation marks.
+  string excls = co_await many( chr, '!' );
 
-  // Parse zero or more exclamation marks. Could also have
-  // written many( chr, '!' ).
-  string excls = co_await many( [] { return chr( '!' ); } );
-
-  // Grammar says number of exclamation marks must be unique.
+  // Grammar says number of exclamation marks must be even.
   if( excls.size() % 2 != 0 )
     co_await fail( "must have even # of !s" );
 
-  // Eat blanks. We could have used the >> operator again to se-
-  // quence this, or we can put it as its own statement.
   co_await blanks();
 
   // This is optional, since we're just validating the input, but

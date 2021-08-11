@@ -78,12 +78,14 @@ parser<char> alpha() { return pred( is_alpha ); }
 
 parser<char> alphanum() { return pred( is_alphanum ); }
 
-parser<> space() { co_await chr( ' ' ); }
-parser<> crlf() { co_await one_of( "\r\n" ); }
-parser<> tab() { co_await chr( '\t' ); }
-parser<> blank() { co_await pred( is_blank ); }
+parser<char> space() { return chr( ' ' ); }
+parser<char> crlf() { return one_of( "\r\n" ); }
+parser<char> tab() { return chr( '\t' ); }
+parser<char> blank() { return pred( is_blank ); }
 
-parser<> blanks() { co_await builtin_blanks{}; }
+parser<string> blanks() {
+  co_return string( co_await builtin_blanks{} );
+}
 
 parser<string> identifier() {
   co_return string( co_await builtin_identifier{} );

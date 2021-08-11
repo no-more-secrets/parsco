@@ -188,50 +188,44 @@ The following is a Parsco parser that parses this grammar:
 
 ```cpp
 parsco::parser<string> parse_hello_world() {
-  // Combinators live in this namespace.
-  using namespace parsco;
-
-  // Parse blanks and then either h/H.
-  char h = co_await( blanks() >> one_of( "hH" ) );
+  // Eat spaces.
+  co_await blanks();
+  // Parse one char exactly, and it must be either 'h' or 'H'.
+  // Our grammar dictates that the "hello" can start with either
+  // a lowercase of capital h.
+  char h = co_await one_of( "hH" );
 
   // But the rest of the letters in the word must be lowercase.
   // Parse the given string exactly.
   co_await str( "ello" );
 
-  // Comma is optional, but if present must follow the first word.
-  result_t<char> comma = co_await try_{ chr( ',' ) };
+  // We can have a comma followed by zero-or-more-spaces, or we
+  // can have no comma followed by one-or-more spaces.
+  //
+  // The >> operator is a sequencing operator that will run
+  // the first parser, ensuring that it succeeds, and will
+  // throw away the result. Then it will invoke the second
+  // parser, again ensuring that it succeeds and returning its
+  // result.
+  //
+  // The | operator runs the first parser and if it succeeds,
+  // returns its result; otherwise runs the second parser and
+  // returns its result, or fails if it fails.
+  co_await( ( chr( ',' ) >> blanks() ) | many1( space ) );
 
-  // If there is a comma then there does not have to be a space
-  // between the words, otherwise there must be.
-  if( comma.has_value() )
-    co_await many( space );
-  else
-    co_await many1( space );
+  // Our grammar rules say that the two words must have the same
+  // capitalization.
+  ( h == 'h' ) ? co_await str( "world" )
+               : co_await str( "World" );
 
-  // The two words must have the same capitalization.
-  if( h == 'h' )
-    co_await chr( 'w' );
-  else
-    co_await chr( 'W' );
-
-  // The remainder of the word must always be lowercase.
-  co_await str( "orld" );
-
-  // Parse zero or more exclamation marks. Could also have
-  // written many( chr, '!' ).
-  std::string excls = co_await many( [] { return chr( '!' ); } );
+  // Parse zero or more exclamation marks.
+  string excls = co_await many( chr, '!' );
 
   // Grammar says number of exclamation marks must be even.
   if( excls.size() % 2 != 0 )
     co_await fail( "must have even # of !s" );
 
-  // Eat blanks. We could have used the >> operator again to se-
-  // quence this, or we can put it as its own statement.
   co_await blanks();
-
-  // The `eof' parser fails if and only we have not consumed the
-  // entire input.
-  co_await eof();
 
   // This is optional, since we're just validating the input, but
   // it demonstrates how to return a result from the parser.
@@ -267,7 +261,7 @@ which, when run on each of the test cases above, yields:
 test "Hello, World!!"      succeeded to parse.
 
 test "  hello , world!!  " failed to parse:
-                           fake-filename.txt:error:1:9
+                           fake-filename.txt:error:1:9 expected 'w'
 
 test "  hello, world!!!! " succeeded to parse.
 
@@ -275,7 +269,7 @@ test "  hello, world!!!  " failed to parse:
                            fake-filename.txt:error:1:18 must have even # of !s
 
 test "hEllo, World"        failed to parse:
-                           fake-filename.txt:error:1:2
+                           fake-filename.txt:error:1:2 expected 'e'
 
 test "hello world"         succeeded to parse.
 
@@ -285,7 +279,7 @@ test "HelloWorld"          failed to parse:
 test "hello,world"         succeeded to parse.
 
 test "hello, World"        failed to parse:
-                           fake-filename.txt:error:1:8
+                           fake-filename.txt:error:1:8 expected 'w'
 
 test "hello, world!!!!!!"  succeeded to parse.
 

@@ -91,13 +91,13 @@ inline constexpr Ret ret{};
 ** Character Classes
 *****************************************************************/
 // Consumes one space (' ');
-parser<> space();
+parser<char> space();
 // Either CR or LF.
-parser<> crlf();
+parser<char> crlf();
 // '\t'
-parser<> tab();
+parser<char> tab();
 // One of any of the space/blank characters.
-parser<> blank();
+parser<char> blank();
 
 // Consumes one digit [0-9] char or fails.
 parser<char> digit();
@@ -120,7 +120,7 @@ parser<> str( std::string sv );
 parser<std::string> identifier();
 
 // Consumes blank spaces.
-parser<> blanks();
+parser<std::string> blanks();
 
 // Parses "..." or '...' and returns the stuff inside, which
 // cannot contain newlines. Note that these return string views
