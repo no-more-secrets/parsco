@@ -684,6 +684,14 @@ when such coroutines is called). Hopefully that will be fixed
 eventually, at which point the niebloids in this library can be
 changed back to function templates.
 
+Similar Libraries
+-----------------
+
+This section lists any other C++ coroutine parser libraries
+that are available or in development for comparison:
+
+* [noam](https://github.com/codeinred/noam)
+
 Combinator Reference
 ====================
 
