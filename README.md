@@ -211,7 +211,7 @@ parsco::parser<string> parse_hello_world() {
   // The | operator runs the first parser and if it succeeds,
   // returns its result; otherwise runs the second parser and
   // returns its result, or fails if it fails.
-  co_await( ( chr( ',' ) >> blanks() ) | many1( space ) );
+  co_await (( chr( ',' ) >> blanks()) | many1( space ));
 
   // Our grammar rules say that the two words must have the same
   // capitalization.
