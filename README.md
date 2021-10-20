@@ -315,7 +315,7 @@ least one correctly-parsed "hello world." Notice that by wrapping
 our parser in `parsco::many1`, the result is now a
 `std::vector<std::string>`, since we are parsing multiple copies
 of "hello world." In this case our parser is simply validating
-the result, so the contents of the vector are not of much use to
+the input, so the contents of the vector are not of much use to
 use, but in most other cases they will be useful. In our case,
 we're just interested in the size.
 
@@ -423,8 +423,10 @@ namespace your_ns {
   struct MyLang {};
 
   parser<MyType> parser_for( lang<MyLang>, tag<MyType> ) {
-    // As an example, we're parse a point-like structure.
+    // As an example, we're parse a point-like structure
+    // consisting of two integers separated by a comma.
     int x = co_await parsco::parse<MyLang, int>();
+    co_await parsco::chr( ',' );
     int y = co_await parsco::parse<MyLang, int>();
     co_return MyType{ x, y };
   }
