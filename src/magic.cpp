@@ -85,7 +85,7 @@ optional<BuiltinParseResult> builtin_single_quoted::try_parse(
     if( in[pos++] == '\'' ) break;
   }
   assert( pos >= 2 );
-  string_view res( in.begin() + 1, pos - 2 );
+  string_view res( in.data() + 1, pos - 2 );
   return BuiltinParseResult{ .sv = res, .consumed = pos };
 };
 
@@ -99,7 +99,7 @@ optional<BuiltinParseResult> builtin_double_quoted::try_parse(
     if( in[pos++] == '"' ) break;
   }
   assert( pos >= 2 );
-  string_view res( in.begin() + 1, pos - 2 );
+  string_view res( in.data() + 1, pos - 2 );
   return BuiltinParseResult{ .sv = res, .consumed = pos };
 };
 
