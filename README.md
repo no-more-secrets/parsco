@@ -571,7 +571,10 @@ successfully with Clang trunk and (partially successfully) with
 GCC 11.1. The library runs well with Clang, but unfortunately
 GCC's coroutine support still seems too lacking to run this
 library without crashing, though it does seem to be able to run
-the "hello world" parser example. Not yet tested with MSVC.
+the "hello world" parser example.
+
+I am told that this library now builds successfully with MSVC,
+so any MSVC build breakages should be considered a regression.
 
 ### Building
 To build and run, you will need a recent build of Clang trunk
