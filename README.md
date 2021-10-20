@@ -181,7 +181,7 @@ struct ipv4_address {
 First we define a parser for the main integral components:
 
 ```cpp
-parser<int> parse_ip_number() {
+parsco::parser<int> parse_ip_number() {
   int n = co_await parsco::parse_int();
   if( n > 255 )
     co_await parsco::fail( "ip values must be <= 255" );
@@ -217,6 +217,7 @@ parsco::parser<ipv4_address> parse_ip_address() {
       co_await parsco::try_{ parsco::chr( '/' ) };
 
   if( slash.has_value() ) {
+    // We have the start of the subnet mask.
     int mask = co_await parsco::parse_int();
     if( mask > 32 )
       co_await parsco::fail( "subnet mask must be <= 32" );
@@ -249,26 +250,26 @@ test "123.234.123.990"    failed to parse:
                           tests:error:1:15 ip values must be <= 255
 test "123.234.123/8"      failed to parse:
                           tests:error:1:12 expected '.'
-
 ```
 
 Some of the inputs parse successfully, while others fail and give
-the location of the parsing failure. Note that some of the ones
-that successfully parse (such as the third one) do not consume
-all input; in that case the it successfully parses an IP address
-with no subnet mask and leaves the remainder of the input buffer
+the location of the parsing failure. Note that some of those that
+successfully parse (such as the third one) do not consume all
+input; in those cases they successfully parses an IP address with
+no subnet mask and leave the remainder of the input buffer
 unparsed.
 
-The final thing to note for this example is that we could have
-terminated the `parse_ip_address` function with a `co_await
-parsco::eof()` statement, which would have ensured that we
-consumed all of the input. That would have had the benefit of
-preventing inputs such as "123.234.123.234 /23" from successfully
-parsing by ignoring the remainder of the input buffer. However,
-the downside to adding `eof()` into a parser is that it prevents
-that parser from being composed with other parsers to produce
-more complex parsers, since it always insists that it be the only
-consumer of the input.
+As a final note for this example, we could have terminated the
+`parse_ip_address` function with a `co_await parsco::eof()`
+statement, which would have ensured that we consumed all of the
+input. That would then have the benefit of preventing inputs such
+as "123.234.123.234 /23" from parsing successfully (currently
+that input parses successfully because the parser parses an IP
+address with no subnet mask and simply ignores the remainder of
+the input). However, the downside to adding `eof()` into a parser
+is that it prevents that parser from being composed with other
+parsers to produce more complex parsers, since it always insists
+that it be the only consumer of the input.
 
 Example 3: The Hello World Parser
 ---------------------------------
