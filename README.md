@@ -471,7 +471,7 @@ input; otherwise, the parser fails.
 See the section called "Combinator Reference" for a complete
 reference of all parsers and combinators.
 
-Example 3: JSON Parser
+Example 4: JSON Parser
 ----------------------
 To see a more realistic example, see the `json-parser.cpp` file
 in the examples folder which contains a JSON parser constructed
