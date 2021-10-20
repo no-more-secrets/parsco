@@ -28,6 +28,7 @@
 #pragma once
 
 // parsco
+#include "parsco/unreachable.hpp"
 #include "parsco/ext.hpp"
 #include "parsco/parser.hpp"
 #include "parsco/promise.hpp"
@@ -404,7 +405,7 @@ struct OnError {
     auto res = co_await try_{ std::move( p ) };
     if( res.has_value() ) co_return *res;
     co_await fail( msg );
-    __builtin_unreachable();
+    parsco::unreachable();
   }
 };
 
@@ -440,7 +441,7 @@ struct Diagnose {
     co_await fail(
         "parsing partially succeeded but was not able to "
         "consume all input." );
-    __builtin_unreachable();
+    parsco::unreachable();
   }
 };
 
