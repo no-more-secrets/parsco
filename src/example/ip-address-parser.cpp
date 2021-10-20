@@ -77,8 +77,8 @@ parser<ipv4_address> parse_ip_address() {
   co_await chr( '.' );
   result.n4 = co_await parse_ip_number();
 
-  // The try_ combinator returns the result wrapped in an
-  // `optional` in order to signal (in a type-safe way) that the
+  // The try_ combinator returns the result wrapped in a
+  // `result_t` in order to signal (in a type-safe way) that the
   // parser may or may not succeed and that it will backtrack if
   // not successful.
   result_t<int> subnet_mask =
