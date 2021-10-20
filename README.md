@@ -148,22 +148,15 @@ combinator.
 Example 2: IP Address Parser
 ----------------------------
 As a second example, let us define a parser that can parse
-four-component IPv4 addresses possibly with a subnet mask on the
-end. An IP address must at least consist of four integers between
-`0` and `255` (inclusive) separated by dots, with no spaces,
-e.g.:
+four-component IPv4 addresses, possibly with a subnet mask on the
+end. An IP address must consist of four integers between `0` and
+`255` (inclusive) separated by dots, with no spaces, e.g.
+"123.234.22.33".
 
-```
-123.234.22.33
-```
-
-The trailing subnet mask, if present, must
-immediately follow the fourth number and must consist of a
-slash followed by an integer between `0` and `32`, e.g.:
-
-```
-123.234.22.33/24
-```
+The trailing subnet mask, if present, must immediately follow the
+fourth number and must consist of a slash (`/`) followed by an
+integer between `0` and `32` (inclusive), e.g.:
+"123.234.22.33/24".
 
 To help write our parser, we will first define a `struct` in
 which to hold the result. This is good practice, since you will
@@ -171,20 +164,21 @@ ideally want your parsers to return results in the form of your
 own type-safe data structures:
 
 ```cpp
+#include <optional>
+
 struct ipv4_address {
   // Each of the four integer components.
-  int n1;
-  int n2;
-  int n3;
-  int n4;
+  int n1 = 0;
+  int n2 = 0;
+  int n3 = 0;
+  int n4 = 0;
 
   // Optional trailing subnet mask.
-  optional<int> subnet_mask;
+  std::optional<int> subnet_mask = std::nullopt;
 };
 ```
 
-First we define a parser for one of the four integral components
-that are separated by dots:
+First we define a parser for the main integral components:
 
 ```cpp
 parser<int> parse_ip_number() {
@@ -195,36 +189,16 @@ parser<int> parse_ip_number() {
 }
 ```
 
-Note that this parses the `int` and does validation, failing the
-parse (all the way up to the root or the nearest `try_`
-combinator if there is one in the call stack) if validation
-fails. Next we will write a parser for just the subnet portion:
+which will be called once for each of the four components. Note
+that this parses the `int` and does validation, failing the parse
+(all the way up to the root or the nearest `try_` combinator) if
+validation fails.
+
+Finally, we define the IPv4 parser that produces the result in
+the form of an `ipv4_address` data structure:
 
 ```cpp
-parsco::parser<int> parse_subnet_mask() {
-  co_await parsco::chr( '/' );
-  int mask = co_await parsco::parse_int();
-  co_return mask;
-}
-```
-
-This requires the slash and the integer, but chooses not to
-validate the integer, as that will be done later. The reason for
-not validating in this function is because the
-`parse_subnet_mask` parser will later be run under a `try_`
-combinator (because the subnet mask is optional) and so any
-validation errors done in this function will not translate to
-fatal errors later; they would just cause the caller to assume
-that there is no subnet mask, which is not quite what we want.
-If you don't quite follow this, try putting the validation in
-this function and then see how it changes the results.
-
-Finally, we define the IPv4 parser that glues together the
-above two smaller parsers to produce the result in the form
-of an `ipv4_address` data structure:
-
-```cpp
-parser<ipv4_address> parse_ip_address() {
+parsco::parser<ipv4_address> parse_ip_address() {
   ipv4_address result;
 
   result.n1 = co_await parse_ip_number();
@@ -239,16 +213,16 @@ parser<ipv4_address> parse_ip_address() {
   // `result_t` in order to signal (in a type-safe way) that the
   // parser may or may not succeed and that it will backtrack if
   // not successful.
-  parsco::result_t<int> subnet_mask =
-      co_await parsco::try_{ parse_subnet_mask() };
+  parsco::result_t<char> slash =
+      co_await parsco::try_{ parsco::chr( '/' ) };
 
-  if( subnet_mask.has_value() ) {
-    if( *subnet_mask > 32 )
+  if( slash.has_value() ) {
+    int mask = co_await parsco::parse_int();
+    if( mask > 32 )
       co_await parsco::fail( "subnet mask must be <= 32" );
-    result.subnet_mask = *subnet_mask;
+    result.subnet_mask = mask;
   }
 
-  // Success.
   co_return result;
 }
 ```
@@ -261,7 +235,8 @@ the following output:
 test "123.234.123.99"     succeeded to parse: 123.234.123.99
 test "123.234.123.99/23"  succeeded to parse: 123.234.123.99/23
 test "123.234.123.99 /23" succeeded to parse: 123.234.123.99
-test "123.234.123.99/"    succeeded to parse: 123.234.123.99
+test "123.234.123.99/"    failed to parse:
+                          tests:error:1:15
 test "123,234.123.99"     failed to parse:
                           tests:error:1:4 expected '.'
 test "123.234.xxx.99"     failed to parse:
@@ -274,17 +249,26 @@ test "123.234.123.990"    failed to parse:
                           tests:error:1:15 ip values must be <= 255
 test "123.234.123/8"      failed to parse:
                           tests:error:1:12 expected '.'
+
 ```
 
 Some of the inputs parse successfully, while others fail and give
 the location of the parsing failure. Note that some of the ones
-that successfully parse (such as the fourth one) do not consume
-all input; in the case of the last one, it successfully parses an
-IP address with no subnet mask and leaves the `/` unparsed in the
-input.
+that successfully parse (such as the third one) do not consume
+all input; in that case the it successfully parses an IP address
+with no subnet mask and leaves the remainder of the input buffer
+unparsed.
 
-The next example is a bit contrived, but will demonstrate the use
-of some more combinators.
+The final thing to note for this example is that we could have
+terminated the `parse_ip_address` function with a `co_await
+parsco::eof()` statement, which would have ensured that we
+consumed all of the input. That would have had the benefit of
+preventing inputs such as "123.234.123.234 /23" from successfully
+parsing by ignoring the remainder of the input buffer. However,
+the downside to adding `eof()` into a parser is that it prevents
+that parser from being composed with other parsers to produce
+more complex parsers, since it always insists that it be the only
+consumer of the input.
 
 Example 3: The Hello World Parser
 ---------------------------------

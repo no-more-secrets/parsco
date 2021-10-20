@@ -35,6 +35,7 @@
 
 // C++ standard library
 #include <iostream>
+#include <optional>
 
 using namespace std;
 using namespace parsco;
@@ -53,12 +54,6 @@ struct ipv4_address {
 //   123.234.345.0/16
 //
 // The bit subnet_mask on the end, if present, must be <= 32.
-
-parser<int> parse_subnet_mask() {
-  co_await chr( '/' );
-  int mask = co_await parse_int();
-  co_return mask;
-}
 
 parser<int> parse_ip_number() {
   int n = co_await parse_int();
@@ -81,13 +76,12 @@ parser<ipv4_address> parse_ip_address() {
   // `result_t` in order to signal (in a type-safe way) that the
   // parser may or may not succeed and that it will backtrack if
   // not successful.
-  result_t<int> subnet_mask =
-      co_await try_{ parse_subnet_mask() };
+  result_t<char> slash = co_await try_{ chr( '/' ) };
 
-  if( subnet_mask.has_value() ) {
-    if( *subnet_mask > 32 )
-      co_await fail( "subnet mask must be <= 32" );
-    result.subnet_mask = *subnet_mask;
+  if( slash.has_value() ) {
+    int mask = co_await parse_int();
+    if( mask > 32 ) co_await fail( "subnet mask must be <= 32" );
+    result.subnet_mask = mask;
   }
 
   co_return result;
@@ -104,7 +98,7 @@ int main( int, char** ) {
       "123.234.123.99",     // pass.
       "123.234.123.99/23",  // pass.
       "123.234.123.99 /23", // pass, but not consume all input.
-      "123.234.123.99/",    // pass, but not consume all input.
+      "123.234.123.99/",    // fail.
       "123,234.123.99",     // fail.
       "123.234.xxx.99",     // fail.
       "123.234.123.99/33",  // fail.
