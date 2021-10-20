@@ -71,13 +71,16 @@ struct result_t {
   bool has_value() const { return val.has_value(); }
   bool has_error() const { return !val.has_value(); }
 
-  operator bool() const { return val.has_value(); }
+  explicit operator bool() const { return val.has_value(); }
 
   error const& get_error() const { return err; }
   error&       get_error() { return err; }
 
   T&       operator*() { return *val; }
   T const& operator*() const { return *val; }
+
+  T*       operator->() { return &*val; }
+  T const* operator->() const { return &*val; }
 
   std::optional<T> val;
   // If there is no val, there is an error.

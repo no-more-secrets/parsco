@@ -172,7 +172,7 @@ struct Many {
     many_result_container_t<res_t> res;
     while( true ) {
       auto m = co_await try_{ f( std::move( args )... ) };
-      if( !m ) break;
+      if( !m.has_value() ) break;
       res.push_back( std::move( *m ) );
     }
     co_return res;

@@ -138,7 +138,7 @@ int main( int, char** ) {
       parse_from_string<json::Json, json::doc>( "fake-file.json",
                                                 json );
 
-  if( !doc ) {
+  if( !doc.has_value() ) {
     cerr << "failed to parse json: " << doc.get_error().what()
          << "\n";
     return 1;

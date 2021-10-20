@@ -65,14 +65,15 @@ result_t<double> safe_stod( string const &s ) {
 } // namespace
 
 parser<int> parse_int() {
-  int multiplier = bool( co_await try_{ chr( '-' ) } ) ? -1 : 1;
+  int multiplier =
+      ( co_await try_{ chr( '-' ) } ).has_value() ? -1 : 1;
   co_return multiplier *co_await lift(
       safe_stoi( co_await many1( digit ) ) );
 }
 
 parser<double> parse_double() {
   double multiplier =
-      bool( co_await try_{ chr( '-' ) } ) ? -1 : 1;
+      ( co_await try_{ chr( '-' ) } ).has_value() ? -1 : 1;
   string ipart = co_await many( digit );
   co_await chr( '.' );
   string fpart = co_await many( digit );
