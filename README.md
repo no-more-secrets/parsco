@@ -828,24 +828,29 @@ Combinator Reference
 
 Below is documentation for each parser and combinator function in
 this library. As you will see, there are many more combinators
-available below that have been demonstrated in the examples.
-Thus, to get the most out of this library, you are encouraged to
-read through these to get a sense of the tools that will be in
-your toolbox when using this library.
+available than those that have been demonstrated in the examples
+thus far. Hence, to get the most out of this library, you are
+encouraged to read through these to get a sense of the tools that
+will be in your toolbox.
 
-This is the official documentation for the combinators.
+This is the official documentation for the combinators. I am
+better at maintaining the combinator descriptions in this README
+than in the code comments, so I'd recommend looking here instead
+of to the comments above each function.
 
 ## Basic Parsers
 
 ### `chr`
 This parser consumes a char that must be `c`, otherwise it
-fails.
+fails.  When it fails, it will produce an error message to the
+effect of "expected character 'x'".
 ```cpp
 parser<char> chr( char c );
 ```
 
 ### `any_chr`
-This parser consumes any char, fails only at eof.
+This parser consumes any char, fails only at EOF (end-of-file
+a.k.a. end-of-input).
 ```cpp
 parser<char> any_chr();
 ```
@@ -857,9 +862,11 @@ predicate returns true, fails otherwise.
 template<typename T>
 parser<char> pred( T func );
 ```
+The predicate function should be callable with a `char` and
+should return something that is implicitly convertible to `bool`.
 
 ### `ret`
-This parser returns a parser that always succeeds and
+This combinator returns a parser that always succeeds and
 produces the given value.
 ```cpp
 template<typename T>
@@ -867,15 +874,18 @@ parser<T> ret( T );
 ```
 
 ### `space`
-This parser consumes one space (as in space bar)
-character. Will fail if it does not find one.
+This parser consumes one space character (specifically, an ASCII
+`0x20`). It Will fail if it does not find one.
 ```cpp
 parser<> space();
 ```
+If you want to parse zero-or-more spaces (as is common in
+parsing) then instead use the `parsco::blanks` parser.
 
 ### `crlf`
 This parser consumes one character that must be either a CR
-or LF, and Will fail if it does not find one.
+(carriage return) or LF (line feed), and will fail if it does not
+find one.
 ```cpp
 parser<> crlf();
 ```
@@ -895,56 +905,67 @@ parser<> blank();
 ```
 
 ### `digit`
-This parser consumes one digit [0-9] char or fails.
+This parser consumes one digit char (`[0-9]`) or fails.
 ```cpp
 parser<char> digit();
 ```
 
 ### `lower`
-This parser parses one lowercase letter (`[a-z]`).
+This parser parses one lowercase letter (`[a-z]`) or fails.
 ```cpp
 parser<char> lower();
 ```
 
 ### `upper`
-This parser parses one uppercase letter (`[A-Z]`).
+This parser parses one uppercase letter (`[A-Z]`) or fails.
 ```cpp
 parser<char> upper();
 ```
 
 ### `alpha`
-This parser parses one letter (`[a-zA-Z]`).
+This parser parses one letter (`[a-zA-Z]`) or fails.
 ```cpp
 parser<char> alpha();
 ```
 
 ### `alphanum`
-This parser parses one alphanumeric character (`[a-zA-Z0-9]`).
+This parser parses one alphanumeric character (`[a-zA-Z0-9]`) or
+fails.
 ```cpp
 parser<char> alphanum();
 ```
 
 ### `one_of`
-This parser consumes one char if it is one of the ones in
-sv, otherwise fails.
+This parser consumes one char if it is one of the ones in `s`,
+otherwise fails.
 ```cpp
-parser<char> one_of( std::string sv );
+parser<char> one_of( std::string s );
 ```
+As is discussed in the section on parameter lifetime above, this
+function takes the string by value in order to avoid dangling
+references that might result in some cases if it were to use
+either a `const std::string&` or a `std::string_view` or the
+like.
 
 ### `not_of`
-This parser consumes one char if it is not one of the
-ones in sv, otherwise fails.
+This parser consumes one char if it is not one of the ones in
+`s`, otherwise fails.
 ```cpp
-parser<char> not_of( std::string sv );
+parser<char> not_of( std::string s );
 ```
+As is discussed in the section on parameter lifetime above, this
+function takes the string by value in order to avoid dangling
+references that might result in some cases if it were to use
+either a `const std::string&` or a `std::string_view` or the
+like.
 
 ### `eof`
-This parser succeeds if the input stream is finished, and
-fails otherwise. Can be used to test if all input has been
-consumed Although see the `exhaust` parser below.
+This parser succeeds if the input stream is finished, and fails
+otherwise. Can be used to test if all input has been consumed.
 ```cpp
 parser<> eof();
 ```
+See also the `exhaust` parser below which is related.
 
 ## Trying and Backtracking
 
