@@ -827,7 +827,13 @@ Combinator Reference
 ====================
 
 Below is documentation for each parser and combinator function in
-this library.
+this library. As you will see, there are many more combinators
+available below that have been demonstrated in the examples.
+Thus, to get the most out of this library, you are encouraged to
+read through these to get a sense of the tools that will be in
+your toolbox when using this library.
+
+This is the official documentation for the combinators.
 
 ## Basic Parsers
 
